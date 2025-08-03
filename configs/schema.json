@@ -1,0 +1,8 @@
+{
+  "review_id": "string",
+  "product_id": "string",
+  "review_date": "datetime",
+  "review_text": "string",
+  "star_rating": "int",
+  "label": "string"
+}

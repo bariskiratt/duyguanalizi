@@ -11,6 +11,9 @@ from typing import Dict, Any
 from typing import cast, Dict, Any
 import numpy as np
 import pickle
+import nltk
+from nltk.corpus import stopwords
+turkce_stopwords = set(stopwords.words('turkish'))
 
 def save_model(model, vectorizer, output_dir, model_name="multinomial_lr_model"):
     """
@@ -179,8 +182,12 @@ def train_baseline(input_parquet="data/processed/clean.parquet", # Temizlenmiş 
     print(f"Eğitim seti boyutu: {len(X_train)}")
     print(f"Test seti boyutu: {len(X_test)}")
 
-    # TF-IDF (unigram + bigram)
-    vectorizer = TfidfVectorizer(ngram_range=(1,2), max_features=5000)  # Unigram ve bigram kullanarak TF-IDF vektörleştirme
+    # TF-IDF (unigram + bigram) - Turkish stopwords ile
+    vectorizer = TfidfVectorizer(
+        ngram_range=(1,2),
+        max_features=5000,
+        stop_words=list(turkce_stopwords)
+    )
     # max_features=5000 ile en sık geçen 5000 kelimeyi alır
     X_train_tfidf = vectorizer.fit_transform(X_train)  # Eğitim verisini TF-IDF ile dönüştürür
     X_test_tfidf = vectorizer.transform(X_test)  # Test verisini TF-IDF ile dönüştürür

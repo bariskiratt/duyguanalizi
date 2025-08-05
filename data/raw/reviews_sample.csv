@@ -1,6 +1,0 @@
-review_id,product_id,review_date,review_text,star_rating
-1,P123,2024-06-10,"Harika bir ürün, çok memnun kaldım!",5
-2,P124,2024-07-05,"Berbat, asla tavsiye etmem. Kırık geldi.",1
-3,P125,2024-08-01,"İdare eder ama fiyatına değmez.",3
-4,P123,2024-08-15,"Çok hızlı kargo, paketleme iyiydi.",4
-5,P126,2024-09-03,"İyi değil ama müşteri hizmetleri ilgilendi.",2

@@ -1,22 +1,25 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-from collections import Counter
 from wordcloud import WordCloud
 import os
 
 def run_eda(input_parquet="data/processed/clean.parquet", output_dir="artifacts/eda"):
+    # Çıktı klasörü oluştur
     os.makedirs(output_dir, exist_ok=True)
 
+    # Veriyi oku
     df = pd.read_parquet(input_parquet)
     print("Toplam yorum:", len(df))
-    print("Label dağılımı:\n", df["label"].value_counts())
+    print("Label dağılımı:\n", df["label"].value_counts(normalize=True))
 
-    # Label dağılım grafiği
+    # --- Label Dağılımı Grafiği ---
     df["label"].value_counts().plot(kind="bar", title="Label Dağılımı")
+    plt.xlabel("Etiket")
+    plt.ylabel("Frekans")
     plt.savefig(f"{output_dir}/label_distribution.png")
     plt.close()
 
-    # Yorum uzunluğu histogramı
+    # --- Yorum Uzunluğu Histogramı ---
     df["length"] = df["review_text"].str.split().apply(len)
     df["length"].hist(bins=10)
     plt.title("Yorum Uzunluğu Dağılımı")
@@ -25,15 +28,17 @@ def run_eda(input_parquet="data/processed/clean.parquet", output_dir="artifacts/
     plt.savefig(f"{output_dir}/review_length.png")
     plt.close()
 
-    # Kelime bulutu (pozitif örnek)
-    text = " ".join(df[df["label"]=="pozitif"]["review_text"].tolist())
-    wordcloud = WordCloud(width=800, height=400, background_color="white").generate(text)
-    wordcloud.to_file(f"{output_dir}/wordcloud_pozitif.png")
+    # --- Pozitif Kelime Bulutu ---
+    text_pos = " ".join(df[df["label"]=="pozitif"]["review_text"].tolist())
+    if text_pos.strip():
+        wordcloud = WordCloud(width=800, height=400, background_color="white").generate(text_pos)
+        wordcloud.to_file(f"{output_dir}/wordcloud_pozitif.png")
 
-    # Negatif kelime bulutu
-    text = " ".join(df[df["label"]=="negatif"]["review_text"].tolist())
-    wordcloud = WordCloud(width=800, height=400, background_color="white").generate(text)
-    wordcloud.to_file(f"{output_dir}/wordcloud_negatif.png")
+    # --- Negatif Kelime Bulutu ---
+    text_neg = " ".join(df[df["label"]=="negatif"]["review_text"].tolist())
+    if text_neg.strip():
+        wordcloud = WordCloud(width=800, height=400, background_color="white").generate(text_neg)
+        wordcloud.to_file(f"{output_dir}/wordcloud_negatif.png")
 
     print(f"EDA raporu görselleri {output_dir}/ klasörüne kaydedildi.")
 

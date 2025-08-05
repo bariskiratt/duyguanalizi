@@ -1,62 +1,66 @@
 import pandas as pd
 import re
 from langdetect import detect
-from datetime import datetime
-import json
 import os
 
-def load_schema(schema_path="configs/schema.json"):
-    with open(schema_path, "r", encoding="utf-8") as f:
-        schema = json.load(f)
-    return schema
-
-def clean_text(text):
-    text = re.sub(r"http\S+|www\.\S+", "", text)  # URL kaldır
-    text = re.sub(r"\S+@\S+", "", text)           # E-posta kaldır
-    text = re.sub(r"\+?\d[\d -]{8,}\d", "", text) # Telefon kaldır
-    text = text.encode("ascii", "ignore").decode("ascii") # Emoji kaldır
+def clean_text(text: str) -> str:
+    # URL kaldır
+    text = re.sub(r"http\S+|www\.\S+", "", text)
+    # E-posta kaldır
+    text = re.sub(r"\S+@\S+", "", text)
+    # Telefon numarası kaldır
+    text = re.sub(r"\+?\d[\d -]{8,}\d", "", text)
+    # Emoji & non-ascii karakterleri kaldır
+    text = text.encode("ascii", "ignore").decode("ascii")
     return text.strip()
 
-def star_to_label(star):
-    if star in [1, 2]:
-        return "negatif"
-    elif star == 3:
-        return "notr"
-    elif star in [4, 5]:
-        return "pozitif"
-    return "bilinmiyor"
+def process_data(
+    input_csv: str = "data/raw/sample_data.csv",
+    output_parquet: str = "data/processed/clean.parquet",
+    sep: str = ";",
+    encoding: str = "utf-8-sig"
+) -> dict:
+    # 1) CSV'yi oku
+    df = pd.read_csv(
+        input_csv,
+        sep=sep,
+        encoding=encoding,
+        names=["review_text", "label_num"],
+        header=0
+    )
 
-def process_data(input_csv="data/raw/reviews_sample.csv", 
-                 output_parquet="data/processed/clean.parquet"):
-    
-    df = pd.read_csv(input_csv)
-    
+    # 2) Durum kodlarını string etiketlere çevir
+    label_map = {0: "negatif", 1: "pozitif", 2: "notr"}
+    df["label"] = df["label_num"].map(label_map)
+
+    # 3) Temizleme & filtreleme
     cleaned_rows = []
     for _, row in df.iterrows():
+        text_raw = row["review_text"]
+
+        # Dil tespiti (opsiyonel)
         try:
-            lang = detect(row["review_text"])
-            if lang != "tr":  
+            if detect(text_raw) != "tr":
                 continue
         except:
             continue
-        
-        text = clean_text(row["review_text"])
+
+        # Metni temizle
+        text = clean_text(text_raw)
         if len(text.split()) < 3:
             continue
 
         cleaned_rows.append({
-            "review_id": row["review_id"],
-            "product_id": row["product_id"],
-            "review_date": pd.to_datetime(row["review_date"]),
             "review_text": text,
-            "star_rating": row["star_rating"],
-            "label": star_to_label(row["star_rating"])
+            "label": row["label"]
         })
-    
+
+    # 4) DataFrame & Parquet kaydet
     clean_df = pd.DataFrame(cleaned_rows)
     os.makedirs(os.path.dirname(output_parquet), exist_ok=True)
     clean_df.to_parquet(output_parquet, index=False)
-    
+
+    # 5) İstatistikleri dön
     stats = {
         "n_reviews": len(clean_df),
         "label_distribution": clean_df["label"].value_counts(normalize=True).to_dict(),
@@ -66,6 +70,5 @@ def process_data(input_csv="data/raw/reviews_sample.csv",
 
 if __name__ == "__main__":
     print("Script başladı...")
-    stats = process_data()
+    stats = process_data(input_csv="data/raw/sample_data.csv")
     print("Temizlik tamamlandı. İstatistikler:", stats)
-

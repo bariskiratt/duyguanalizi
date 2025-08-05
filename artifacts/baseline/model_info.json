@@ -1,0 +1,14 @@
+{
+  "model_type": "Multinomial Logistic Regression",
+  "solver": "lbfgs",
+  "multi_class": "multinomial",
+  "max_iter": 1000,
+  "C": 1.0,
+  "class_weight": "balanced",
+  "feature_count": 5000,
+  "training_samples": 11253,
+  "test_samples": 2814,
+  "accuracy": 0.8930348258706468,
+  "macro_f1": 0.8289882082806894,
+  "hyperparameter_tuning_used": false
+}

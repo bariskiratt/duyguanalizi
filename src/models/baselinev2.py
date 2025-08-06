@@ -40,4 +40,13 @@ with open('trained_model.pkl', 'wb') as f:
     pickle.dump(clf, f)
 
 with open('trained_vectorizer.pkl', 'wb') as f:
+<<<<<<< HEAD
     pickle.dump(vectorizer, f)
+=======
+    pickle.dump(vectorizer, f)
+
+
+
+
+
+>>>>>>> cb630d222949a11e9bd6056e25e58c81e74d58c7

@@ -15,9 +15,9 @@ def clean_text(text: str) -> str:
     return text.strip()
 
 def process_data(
-    input_csv: str = "data/raw/sample_data.csv",
-    output_parquet: str = "data/processed/clean.parquet",
-    sep: str = ";",
+    input_csv: str = "data/raw/cleanocdata.csv",
+    output_parquet: str = "data/processed/clean2.parquet",
+    sep: str = ",",
     encoding: str = "utf-8-sig"
 ) -> dict:
     # 1) CSV'yi oku
@@ -70,5 +70,5 @@ def process_data(
 
 if __name__ == "__main__":
     print("Script başladı...")
-    stats = process_data(input_csv="data/raw/sample_data.csv")
+    stats = process_data(input_csv="data/raw/cleanocdata.csv")
     print("Temizlik tamamlandı. İstatistikler:", stats)

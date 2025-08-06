@@ -11,7 +11,7 @@ def clean_text(text: str) -> str:
     # Telefon numarası kaldır
     text = re.sub(r"\+?\d[\d -]{8,}\d", "", text)
     # Emoji & non-ascii karakterleri kaldır
-    text = text.encode("ascii", "ignore").decode("ascii")
+    text = text.encode("iso-8859-9", "ignore").decode("iso-8859-9")
     return text.strip()
 
 def process_data(

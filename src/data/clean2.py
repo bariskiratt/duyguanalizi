@@ -2,7 +2,7 @@ import os
 import csv
 import re
 from typing import List, Tuple
-from langdetect import detect
+
 import pandas as pd
 import chardet
 # from langdetect import detect  # Türkçe dil filtresi kullanacaksan aç
@@ -11,7 +11,6 @@ import chardet
 class DataProcessor:
     """Metin verilerini temizleyip Parquet’e dönüştüren sınıf."""
 
-<<<<<<< HEAD
     # String ve sayısal etiketlerin hepsini tek haritaya topladık
     LABEL_MAPPING = {
         "Olumsuz": "negatif",
@@ -19,59 +18,6 @@ class DataProcessor:
         "Tarafsız": "notr",
         "0": "negatif", "1": "pozitif", "2": "notr",
          0 : "negatif",  1 : "pozitif",  2 : "notr",
-=======
-def process_data(
-    input_csv: str = "data/raw/cleanocdata.csv",
-    output_parquet: str = "data/processed/clean2.parquet",
-    sep: str = ",",
-    encoding: str = "utf-8-sig"
-) -> dict:
-    # 1) CSV'yi oku
-    df = pd.read_csv(
-        input_csv,
-        sep=sep,
-        encoding=encoding,
-        names=["review_text", "label_num"],
-        header=0
-    )
-
-    # 2) Durum kodlarını string etiketlere çevir
-    label_map = {0: "negatif", 1: "pozitif", 2: "notr"}
-    df["label"] = df["label_num"].map(label_map)
-
-    # 3) Temizleme & filtreleme
-    cleaned_rows = []
-    for _, row in df.iterrows():
-        text_raw = row["review_text"]
-
-        # Dil tespiti (opsiyonel)
-        try:
-            if detect(text_raw) != "tr":
-                continue
-        except:
-            continue
-
-        # Metni temizle
-        text = clean_text(text_raw)
-        if len(text.split()) < 3:
-            continue
-
-        cleaned_rows.append({
-            "review_text": text,
-            "label": row["label"]
-        })
-
-    # 4) DataFrame & Parquet kaydet
-    clean_df = pd.DataFrame(cleaned_rows)
-    os.makedirs(os.path.dirname(output_parquet), exist_ok=True)
-    clean_df.to_parquet(output_parquet, index=False)
-
-    # 5) İstatistikleri dön
-    stats = {
-        "n_reviews": len(clean_df),
-        "label_distribution": clean_df["label"].value_counts(normalize=True).to_dict(),
-        "avg_length": clean_df["review_text"].str.split().apply(len).mean()
->>>>>>> cb630d222949a11e9bd6056e25e58c81e74d58c7
     }
 
     def __init__(self, min_word_count: int = 3, use_language_filter: bool = False):
@@ -198,10 +144,4 @@ def main():
 
 
 if __name__ == "__main__":
-<<<<<<< HEAD
     main()
-=======
-    print("Script başladı...")
-    stats = process_data(input_csv="data/raw/cleanocdata.csv")
-    print("Temizlik tamamlandı. İstatistikler:", stats)
->>>>>>> cb630d222949a11e9bd6056e25e58c81e74d58c7

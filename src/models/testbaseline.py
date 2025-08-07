@@ -7,6 +7,14 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 import seaborn as sns
 import matplotlib.pyplot as plt
 from pathlib import Path
+import json
+from datetime import datetime
+
+# Türkçe font desteği
+plt.rcParams['font.family'] = 'DejaVu Sans'
+
+# Klasör oluştur
+Path("artifacts/baseline").mkdir(parents=True, exist_ok=True)
 
 with open("src/saves/trained_model.pkl", 'rb') as f:
     clf = pickle.load(f)
@@ -24,61 +32,121 @@ X_test_vectorized = vectorizer.transform(X_test_texts)
 y_pred = clf.predict(X_test_vectorized)
 y_pred_proba = clf.predict_proba(X_test_vectorized)
 
-print("Accuracy: ", accuracy_score(y_true, y_pred))
-print("Classification Report: ", classification_report(y_true, y_pred))
-print("Confusion Matrix: ", confusion_matrix(y_true, y_pred))
+# ============================================================================
+# 📊 METRİKLERİ HESAPLA VE TABLO HALİNE GETİR
+# ============================================================================
 
-# Nötr olarak tahmin edilen cümleleri bul
+accuracy = accuracy_score(y_true, y_pred)
+
+# Classification report'u DataFrame'e çevir
+report = classification_report(y_true, y_pred, output_dict=True)
+
+# Sınıf bazlı metrikler
+class_metrics = []
+for class_name in ['pozitif', 'negatif', 'notr']:
+    if class_name in report:
+        metrics = report[class_name]
+        class_metrics.append({
+            'Sınıf': class_name,
+            'Precision': f"{metrics['precision']:.3f}",
+            'Recall': f"{metrics['recall']:.3f}",
+            'F1-Score': f"{metrics['f1-score']:.3f}",
+            'Support': metrics['support']
+        })
+
+metrics_df = pd.DataFrame(class_metrics)
+
+# Sadece classification report ve sınıf metriklerini yazdır
+print("=" * 80)
+print("🎯 DUYGU ANALİZİ MODELİ TEST SONUÇLARI")
+print("=" * 80)
+
+print(f"\n📊 GENEL PERFORMANS:")
+print(f"   Accuracy: {accuracy:.3f} ({accuracy:.1%})")
+
+print(f"\n📋 SINIF BAZLI METRİKLER:")
+print(metrics_df.to_string(index=False))
+
+print(f"\n📝 DETAYLI CLASSIFICATION REPORT:")
+print(classification_report(y_true, y_pred))
+
+# ============================================================================
+# 🔍 NÖTR TAHMİNLERİ ANALİZ ET (SESSİZ)
+# ============================================================================
+
 neutral_predictions = []
 for i, (text, pred, true_label) in enumerate(zip(X_test_texts, y_pred, y_true)):
     if pred == 'notr':
         neutral_predictions.append({
-            'text': text,
-            'predicted': pred,
-            'true_label': true_label,
-            'confidence': max(y_pred_proba[i]),
-            'neutral_prob': y_pred_proba[i][1]  # nötr olasılığı
+            'Cümle': text,
+            'Tahmin': pred,
+            'Gerçek': true_label,
+            'Güven': f"{max(y_pred_proba[i]):.1%}",
+            'Nötr_Olasılık': f"{y_pred_proba[i][1]:.1%}"
         })
 
-print(f"\nNötr olarak tahmin edilen cümle sayısı: {len(neutral_predictions)}")
+neutral_df = pd.DataFrame(neutral_predictions)
 
-# Nötr cümleleri göster
-print("\n=== NÖTR OLARAK TAHMİN EDİLEN CÜMLELER ===")
-for i, item in enumerate(neutral_predictions[:20], 1):
-    print(f"{i}. Cümle: {item['text']}")
-    print(f"   Tahmin: {item['predicted']}")
-    print(f"   Gerçek: {item['true_label']}")
-    print(f"   Güven: {item['confidence']:.1%}")
-    print(f"   Nötr Olasılık: {item['neutral_prob']:.1%}")
-    print("-" * 60)
+# ============================================================================
+# 📈 KELİME ÖNEM TABLOLARI (SESSİZ)
+# ============================================================================
 
-
-
-# Model'in feature importance'sini al
 feature_names = vectorizer.get_feature_names_out()
 coefficients = clf.coef_[1]  # nötr sınıfı için coefficient'lar
 
-# Kelime ağırlıklarını DataFrame'e çevir
 word_weights = pd.DataFrame({
-    'word': feature_names,
-    'weight': coefficients
+    'Kelime': feature_names,
+    'Ağırlık': coefficients
 })
 
-# Nötr sınıfı için en önemli kelimeleri göster
-print("\n=== NÖTR SINIFI İÇİN EN ÖNEMLİ KELİMELER ===")
-print("Pozitif ağırlık (nötr sınıfına katkı):")
-print(word_weights.nlargest(20, 'weight')[['word', 'weight']])
+# En önemli pozitif ve negatif kelimeler
+top_positive = word_weights.nlargest(15, 'Ağırlık')[['Kelime', 'Ağırlık']]
+top_negative = word_weights.nsmallest(15, 'Ağırlık')[['Kelime', 'Ağırlık']]
 
-print("\nNegatif ağırlık (nötr sınıfından çıkarır):")
-print(word_weights.nsmallest(20, 'weight')[['word', 'weight']])
-    
-    
-    # Belirli bir nötr cümle için kelime ağırlıklarını analiz et
+# ============================================================================
+# 🎨 CONFUSION MATRIX GÖRSELİ (SESSİZ)
+# ============================================================================
+
+labels_sorted = sorted(y_true.unique())
+cm = confusion_matrix(y_true, y_pred, labels=labels_sorted)
+
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
+            xticklabels=labels_sorted, yticklabels=labels_sorted,
+            cbar_kws={'label': 'Örnek Sayısı'})
+plt.title("Confusion Matrix - Duygu Analizi Modeli", fontsize=14, pad=20)
+plt.xlabel("Tahmin Edilen", fontsize=12)
+plt.ylabel("Gerçek", fontsize=12)
+plt.tight_layout()
+plt.savefig("artifacts/baseline/confusion_matrix.png", dpi=300, bbox_inches='tight')
+plt.close()
+
+# ============================================================================
+# 💾 SONUÇLARI DOSYALARA KAYDET (SESSİZ)
+# ============================================================================
+
+# Ana metrikler
+results = {
+    'accuracy': accuracy,
+    'confusion_matrix': cm.tolist(),
+    'test_date': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+}
+
+with open('artifacts/baseline/metrics.json', 'w', encoding='utf-8') as f:
+    json.dump(results, f, ensure_ascii=False, indent=2)
+
+# Tabloları kaydet
+metrics_df.to_csv('artifacts/baseline/classification_metrics.csv', index=False, encoding='utf-8')
+neutral_df.to_csv('artifacts/baseline/neutral_predictions.csv', index=False, encoding='utf-8')
+word_weights.to_csv('artifacts/baseline/word_weights.csv', index=False, encoding='utf-8')
+
+# ============================================================================
+# 🔬 CÜMLE ANALİZİ (SESSİZ)
+# ============================================================================
+
 def analyze_sentence_weights(sentence, vectorizer, clf, feature_names):
-    # Cümleyi vectorize et
+    """Belirli bir cümle için kelime ağırlıklarını analiz et"""
     sentence_vector = vectorizer.transform([sentence])
-    
-    # Hangi kelimelerin kullanıldığını bul
     word_indices = sentence_vector.indices
     word_weights_in_sentence = []
     
@@ -89,36 +157,20 @@ def analyze_sentence_weights(sentence, vectorizer, clf, feature_names):
     
     return sorted(word_weights_in_sentence, key=lambda x: x[1], reverse=True)
 
-# Örnek bir nötr cümle analizi
-if neutral_predictions:
-    sample_sentence = neutral_predictions[0]['text']
-    print(f"\n=== CÜMLE ANALİZİ: '{sample_sentence}' ===")
-    
+# Örnek bir nötr cümle analizi (sessiz)
+if len(neutral_df) > 0:
+    sample_sentence = neutral_df.iloc[0]['Cümle']
     word_analysis = analyze_sentence_weights(sample_sentence, vectorizer, clf, feature_names)
-    print("Kelime ağırlıkları:")
-    for word, weight in word_analysis:
-        print(f"  {word}: {weight:.4f}")
+    
+    # Cümle analizini dosyaya kaydet
+    sentence_analysis = {
+        'sentence': sample_sentence,
+        'word_weights': [(word, float(weight)) for word, weight in word_analysis]
+    }
+    
+    with open('artifacts/baseline/sentence_analysis.json', 'w', encoding='utf-8') as f:
+        json.dump(sentence_analysis, f, ensure_ascii=False, indent=2)
 
-
-
-# Nötr cümleleri DataFrame'e çevir ve kaydet
-neutral_df = pd.DataFrame(neutral_predictions)
-neutral_df.to_csv('neutral_predictions.csv', index=False)
-
-# Kelime ağırlıklarını kaydet
-word_weights.to_csv('neutral_word_weights.csv', index=False)
-
-print(f"\nSonuçlar kaydedildi:")
-print("- neutral_predictions.csv")
-print("- neutral_word_weights.csv")
-
-# confusion matrix görseli
-labels_sorted = sorted(y_true.unique())
-cm = confusion_matrix(y_true, y_pred, labels=labels_sorted)
-sns.heatmap(cm, annot=True, fmt="d",
-            xticklabels=labels_sorted, yticklabels=labels_sorted)
-plt.title("Confusion Matrix – Baseline")
-plt.xlabel("Predicted"); plt.ylabel("True")
-plt.tight_layout()
-plt.savefig("confusion_matrix.png")
-plt.close()
+print("\n" + "=" * 80)
+print("✅ TEST TAMAMLANDI!")
+print("=" * 80)

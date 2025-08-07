@@ -16,8 +16,8 @@ from sklearn.metrics import (
 
 # ----------------------------------------------------------------------
 def train_baseline(
-    train_parquet: str = "data/processed/test_data.parquet",
-    test_parquet:  str = "data/processed/train_data.parquet",
+    train_parquet: str = "data/processed/train_data.parquet",
+    test_parquet:  str = "data/processed/test_data.parquet",
     output_dir:    str = "artifacts/baseline",
     ngram: tuple   = (1, 2),
     max_feat: int  = 10_000,

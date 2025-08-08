@@ -1,0 +1,36 @@
+[33m5b1d60c[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m Update gitignore to exclude large files
+[33m96b96ab[m update wth bert
+[33m4cbd457[m updated
+[33mc320490[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m gitignore ve model update
+[33m6b97126[m Add ignore rules
+[33m023f8e3[m tamam commit
+[33m0a94bdf[m Merge branch 'main' of https://github.com/bariskiratt/duyguanalizi
+[33m43f5884[m baseline,testbaseline guncellendi, ve temizlik yapilip gereksizler yedeklere atildi
+[33m2029894[m Create clean_main.py
+[33m0f83c0b[m update
+[33m7028faa[m update
+[33mc6e9d0e[m[33m ([m[1;35mrefs/stash[m[33m)[m WIP on main: cb630d2 Merge branch 'main' of https://github.com/bariskiratt/duyguanalizi
+[33m73c6f43[m index on main: cb630d2 Merge branch 'main' of https://github.com/bariskiratt/duyguanalizi
+[33mcb630d2[m Merge branch 'main' of https://github.com/bariskiratt/duyguanalizi
+[33m93c0b6c[m baseline ve testbaseline eklendi
+[33m53cbd6c[m Create clean2.py
+[33m7e57b22[m Baselinev2 devam ve clean_review ile data dosyasi sekle sokuldu ve cleanocdata yuklendi, cleaned data yani.
+[33m1965365[m  clean modify
+[33mccf0e51[m Add files via upload
+[33me563339[m deneme
+[33ma8b8121[m Merge conflict resolved: Turkish stopwords + new model functions
+[33m751eef5[m Multinomial Logistic Regression entegrasyonu tamamlandı - Model eğitimi, hyperparameter tuning, demo script ve dokümantasyon eklendi
+[33mfa249cb[m gereksiz degisiklikler
+[33m3a542ee[m Güncelle
+[33mf525931[m f1.py
+[33mb93ff39[m f1.py eklendi
+[33m7732784[m Delete Lecturenote - MAT1041.zip
+[33m5d90eff[m Create notlar.md
+[33me2acaa5[m Add files via upload
+[33m0b95b24[m Raw data file yuklendi
+[33m80c60af[m[33m ([m[1;31morigin/test[m[33m, [m[1;32mtest[m[33m)[m Raw data file yuklendi
+[33mac7d2ac[m Merge remote main into local
+[33mcd1ac41[m İlk commit: yz_project setup
+[33m7fa24e2[m Merge branch 'main' of https://github.com/bariskiratt/duyguanalizi
+[33m5dc2e5c[m oylesine kod filei
+[33me4869b6[m Create codes

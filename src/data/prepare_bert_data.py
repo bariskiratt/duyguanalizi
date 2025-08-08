@@ -1,33 +1,30 @@
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
-from transformers import BertTokenizer
 from datasets import Dataset
-import yaml
-from pathlib import Path
-
+from transformers import AutoTokenizer
 
 
 def load_data():
     """Veriyi yukle ve hazirla"""
 
-    df = pd.read_csv("data/processed/train_data.csv")
+    df = pd.read_parquet("data/processed/train_data.parquet")
 
-    label_map = {'pozitif': 0, 'negatif': 1, 'nötr': 2}
+    label_map = {'pozitif': 1, 'negatif': 0, 'notr': 2}
     df['label'] = df['label'].map(label_map)
 
     return df
 
-def tokenize_data(texts,tokenizer,max_lenght=512):
-    return tokenizer(texts,padding=True,truncation=True,max_length=max_lenght,return_tensors="pt")
+def tokenize_data(texts,tokenizer,max_length=128):
+    return tokenizer(texts,padding=True,truncation=True,max_length=max_length,return_tensors="pt")
 
 def main():
     df = load_data()
     tokenizer = AutoTokenizer.from_pretrained("dbmdz/bert-base-turkish-cased")
     train_df,val_df = train_test_split(df,test_size=0.2,random_state=42)
 
-    train_encodings = tokenize_data(train_df['text'].tolist(),tokenizer)
-    val_encodings = tokenize_data(val_df['text'].tolist(),tokenizer)
+    train_encodings = tokenize_data(train_df['review_text'].tolist(),tokenizer)
+    val_encodings = tokenize_data(val_df['review_text'].tolist(),tokenizer)
 
        # Dataset oluştur
     train_dataset = Dataset.from_dict({
@@ -45,3 +42,9 @@ def main():
     # Kaydet
     train_dataset.save_to_disk("data/processed/bert_train")
     val_dataset.save_to_disk("data/processed/bert_val")
+
+
+
+
+if __name__ == "__main__":
+    main()

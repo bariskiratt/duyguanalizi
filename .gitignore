@@ -1,165 +1,31 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-*# =============== BÜYÜK VERİ DOSYALARI =================*
-
+# Data files (büyük dosyalar)
 data/raw/*.csv
-
-data/raw/*.xlsx
-
-data/raw/*.json
-
+data/raw/*.parquet
+data/raw/hepsiburada_dataset.csv
+data/raw/hepsiburada_sample_*.csv
 data/processed/*.parquet
+data/processed/hepsiburada_dataset.parquet
 
-data/processed/*.csv
+# Model artifacts (model dosyaları)
+artifacts/baseline/*.pkl
+artifacts/baseline/*.png
+artifacts/baseline/*.csv
+artifacts/baseline/*.json
+artifacts/bert_ckpt/
+artifacts/bert_reports/
 
-*.csv
+# BERT model files
+*.bin
+*.safetensors
+*.onnx
+*.pt
+*.pth
 
-*.png
+# Hugging Face cache
+.cache/
+*.cache
 
-*# =============== MODEL DOSYALARI =================*
-
-src/saves/*.pkl
-
-src/saves/*.joblib
-
-src/saves/*.h5
-
-src/saves/*.onnx
-
-src/saves/*.pth
-
-*# =============== ARTIFACTS =================*
-
-artifacts/**/*.png
-
-artifacts/**/*.jpg
-
-artifacts/**/*.jpeg
-
-artifacts/**/*.csv
-
-artifacts/**/*.json
-
-artifacts/**/*.pkl
-
-*# =============== PYTHON =================*
-
-__pycache__/
-
-- .py[cod]
-- $py.class
-- .so
-
-.Python
-
-build/
-
-develop-eggs/
-
-dist/
-
-downloads/
-
-eggs/
-
-.eggs/
-
-lib/
-
-lib64/
-
-parts/
-
-sdist/
-
-var/
-
-wheels/
-
-- .egg-info/
-
-.installed.cfg
-
-- .egg
-
-*# =============== VIRTUAL ENVIRONMENTS =================*
-
-venv/
-
-a_venv/
-
-env/
-
-ENV/
-
-env.bak/
-
-venv.bak/
-
-*# =============== IDE =================*
-
-.vscode/
-
-.idea/
-
-- .swp
-- .swo
-- ~
-
-*# =============== OS =================*
-
-.DS_Store
-
-.DS_Store?
-
-._*
-
-.Spotlight-V100
-
-.Trashes
-
-ehthumbs.db
-
-Thumbs.db
-
-*# =============== JUPYTER =================*
-
-.ipynb_checkpoints
-
-*# =============== LOGS & TEMP =================*
-
-- .log
-
-logs/
-
-- .tmp
-- .temp
-=======
-=======
->>>>>>> c320490e4b737dbfc5a7d06bae6993745f561fbe
-# =============== BÜYÜK VERİ DOSYALARI =================
-data/raw/*.csv
-data/raw/*.xlsx
-data/raw/*.json
-data/processed/*.parquet
-data/processed/*.csv
-
-# =============== MODEL DOSYALARI =================
-src/saves/*.pkl
-src/saves/*.joblib
-src/saves/*.h5
-src/saves/*.onnx
-src/saves/*.pth
-
-# =============== ARTIFACTS =================
-artifacts/**/*.png
-artifacts/**/*.jpg
-artifacts/**/*.jpeg
-artifacts/**/*.csv
-artifacts/**/*.json
-artifacts/**/*.pkl
-
-# =============== PYTHON =================
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -181,40 +47,25 @@ wheels/
 .installed.cfg
 *.egg
 
-# =============== VIRTUAL ENVIRONMENTS =================
+# Virtual environments
 venv/
-a_venv/
 env/
 ENV/
-env.bak/
-venv.bak/
 
-# =============== IDE =================
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
 
-# =============== OS =================
+# OS
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 
-# =============== JUPYTER =================
-.ipynb_checkpoints
-
-# =============== LOGS & TEMP =================
+# Logs
 *.log
 logs/
+
+# Temporary files
 *.tmp
-<<<<<<< HEAD
 *.temp
->>>>>>> c320490e4b737dbfc5a7d06bae6993745f561fbe
-=======
-*.temp
->>>>>>> c320490e4b737dbfc5a7d06bae6993745f561fbe

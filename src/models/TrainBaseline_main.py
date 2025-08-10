@@ -11,7 +11,7 @@ from pathlib import Path
 
 
 output_dir = str = "artifacts/baseline"
-df = pd.read_parquet("data/processed/hepsi_clean.parquet")
+df = pd.read_parquet("data/processed/balanced.parquet")
 X_train = df['review_text']
 y_train = df['label']
 

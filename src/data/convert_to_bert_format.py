@@ -24,10 +24,11 @@ from pathlib import Path
 
 
 def convert_to_bert_format(
-    input_path: str = "duyguanalizi/data/processed/hepsiburada_dataset.parquet",
-    output_path: str = "duyguanalizi/data/processed/hepsiburada_bert_format.parquet",
+    input_path: str = "data/processed/hepsiburada_dataset.parquet",
+    output_path: str = "data/processed/hepsiburada_bert_format.parquet",
     neg_max: int = 40,
     pos_min: int = 60,
+    notr_score: int= 60
 ) -> None:
     """Convert hepsiburada dataset to BERT training format."""
     
@@ -49,7 +50,7 @@ def convert_to_bert_format(
         score = float(score)
         if score <= neg_max:
             return "negatif"
-        elif score >= pos_min:
+        elif score > pos_min:
             return "pozitif"
         else:
             return "notr"

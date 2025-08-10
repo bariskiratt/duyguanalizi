@@ -34,7 +34,7 @@ def load_data():
     """Veriyi yukle ve hazirla"""
     
     print("🔄 Loading data...")
-    df = pd.read_parquet("duyguanalizi/data/processed/hepsiburada_bert_format.parquet")
+    df = pd.read_parquet("data/processed/balanced.parquet")
     print(f"✅ Loaded {len(df):,} samples")
     
     print("🔄 Mapping labels...")
@@ -69,10 +69,10 @@ def tokenize_data(texts, tokenizer, max_length=128, desc="Tokenizing"):
     for i in tqdm(range(0, len(texts), batch_size), desc=desc):
         batch_texts = texts[i:i + batch_size]
         
-        # Tokenize batch
+        # Tokenize batch - ensure ALL sequences are exactly max_length
         batch_encodings = tokenizer(
             batch_texts,
-            padding=True,
+            padding='max_length',  # Pad to exactly max_length, not just longest in batch
             truncation=True,
             max_length=max_length,
             return_tensors=None  # Don't convert to tensors yet
@@ -174,7 +174,7 @@ def main():
     print(f"📊 Final Summary:")
     print(f"   Training dataset size: {len(train_dataset):,}")
     print(f"   Validation dataset size: {len(val_dataset):,}")
-    print(f"   Saved to: data/processed/bert_train & data/processed/bert_val")
+    print(f"   Saved to: duyguanalizi/data/processed/bert_train & duyguanalizi/data/processed/bert_val")
     print(f"💾 Final memory usage: {get_memory_usage():.1f} MB")
     print("=" * 50)
 

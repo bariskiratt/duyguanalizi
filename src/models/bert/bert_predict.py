@@ -2,7 +2,7 @@ import torch
 import yaml
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import numpy as np
-
+import os
 class BERTPredictor:
     def __init__(self, model_path="./artifacts/bert_ckpt/best_model", config_path="src/configs/bert_hparams.yaml"):
         """BERT model predictor for sentiment analysis"""

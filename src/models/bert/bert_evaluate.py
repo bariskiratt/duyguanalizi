@@ -10,6 +10,18 @@ from sklearn.metrics import accuracy_score, f1_score, classification_report, con
 from datasets import load_from_disk
 import os
 
+def to_python_serializable(obj):
+    """Recursively convert NumPy types to native Python for JSON serialization."""
+    if isinstance(obj, (np.floating, np.integer)):
+        return obj.item()
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, (list, tuple)):
+        return [to_python_serializable(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: to_python_serializable(v) for k, v in obj.items()}
+    return obj
+
 class BERTEvaluator:
     def __init__(self, model_path="./artifacts/bert_ckpt/best_model", config_path="src/configs/bert_hparams.yaml"):
         """BERT model evaluator for comprehensive testing"""
@@ -53,8 +65,27 @@ class BERTEvaluator:
         self.model = AutoModelForSequenceClassification.from_pretrained(model_path).to(self.device)
         self.model.eval()
         
-        # Label mappings (consistent with dataset: 0=Negative, 1=Positive, 2=Neutral)
-        self.label_map = {0: "Negative", 1: "Positive", 2: "Neutral"}
+        # Label mappings: prefer model-config mapping if available
+        label_map = None
+        try:
+            id2label = getattr(self.model.config, 'id2label', None)
+            if id2label:
+                parsed = {}
+                for k, v in id2label.items():
+                    try:
+                        parsed[int(k)] = str(v)
+                    except Exception:
+                        # Fall back if keys are already ints or unexpected
+                        if isinstance(k, int):
+                            parsed[k] = str(v)
+                if parsed:
+                    label_map = dict(sorted(parsed.items(), key=lambda kv: kv[0]))
+        except Exception:
+            pass
+        if label_map is None:
+            # Default mapping consistent with dataset used in this project
+            label_map = {0: "Negative", 1: "Positive", 2: "Neutral"}
+        self.label_map = label_map
         
         print("✅ Model loaded successfully!")
     
@@ -159,9 +190,10 @@ class BERTEvaluator:
         f1_weighted = f1_score(true_labels, predictions, average='weighted')
         
         # Per-class metrics
-        report = classification_report(true_labels, predictions, 
-                                     target_names=list(self.label_map.values()),
-                                     output_dict=True)
+        ordered_label_names = [self.label_map[i] for i in sorted(self.label_map.keys())]
+        report = classification_report(true_labels, predictions,
+                                       target_names=ordered_label_names,
+                                       output_dict=True)
         
         # Confusion matrix
         cm = confusion_matrix(true_labels, predictions)
@@ -176,11 +208,7 @@ class BERTEvaluator:
             'average_confidence': avg_confidence,
             'classification_report': report,
             'confusion_matrix': cm.tolist(),
-            'per_class_metrics': {
-                'Negative': report['Negative'],
-                'Neutral': report['Neutral'], 
-                'Positive': report['Positive']
-            }
+            'per_class_metrics': {name: report[name] for name in ordered_label_names}
         }
         
         return metrics
@@ -191,7 +219,7 @@ class BERTEvaluator:
         
         # Save metrics JSON
         with open(f"{output_dir}/bert_metrics.json", 'w', encoding='utf-8') as f:
-            json.dump(metrics, f, indent=2, ensure_ascii=False)
+            json.dump(to_python_serializable(metrics), f, indent=2, ensure_ascii=False)
         
         # Save detailed results CSV
         df = pd.DataFrame({
@@ -214,9 +242,10 @@ class BERTEvaluator:
     def plot_confusion_matrix(self, cm, output_dir):
         """Plot and save confusion matrix"""
         plt.figure(figsize=(8, 6))
+        ordered_label_names = [self.label_map[i] for i in sorted(self.label_map.keys())]
         sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
-                   xticklabels=list(self.label_map.values()),
-                   yticklabels=list(self.label_map.values()))
+                    xticklabels=ordered_label_names,
+                    yticklabels=ordered_label_names)
         plt.title('BERT Model - Confusion Matrix')
         plt.ylabel('True Label')
         plt.xlabel('Predicted Label')

@@ -167,7 +167,7 @@ class ModelComparator:
         improvements.append([comparison_data['overall']['accuracy']['improvement']])
         improvement_labels.append('Accuracy')
         improvements.append([comparison_data['overall']['f1_macro']['improvement']])
-        improvement_labels.append('F1 (Macro)'])
+        improvement_labels.append('F1 (Macro)')
         
         # Per-class improvements
         for cls in classes:

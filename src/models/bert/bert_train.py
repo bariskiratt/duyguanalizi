@@ -5,7 +5,8 @@ from transformers import (
     AutoModelForSequenceClassification,
     TrainingArguments, 
     Trainer,
-    EarlyStoppingCallback
+    EarlyStoppingCallback,
+    DataCollatorWithPadding
 )
 from sklearn.metrics import accuracy_score,f1_score,classification_report
 import numpy as np
@@ -76,7 +77,11 @@ def main():
     
     # Training arguments
     training_args = get_training_args()
-    
+    # create the collator (pads to batch max at runtime; pad to multiple of 8 helps fp16 Tensor Cores)
+    data_collator = DataCollatorWithPadding(
+        tokenizer=tokenizer,
+        pad_to_multiple_of=8
+    )
     # Trainer oluştur
     trainer = Trainer(
         model=model,
@@ -84,6 +89,7 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
         compute_metrics=compute_metrics,
+        data_collator=data_collator,
         callbacks=[EarlyStoppingCallback(early_stopping_patience=3)]
     )
     

@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from transformers import AutoTokenizer, AutoModelForSequenceClassification,DataCollatorWithPadding
 from sklearn.metrics import accuracy_score, f1_score, classification_report, confusion_matrix
 from datasets import load_from_disk
 import os
@@ -138,13 +138,13 @@ class BERTEvaluator:
                     return_tensors="pt"
                 ).to(self.device)
             else:
-                # Use pre-tokenized inputs from the dataset
-                input_ids_tensor = torch.tensor(batch['input_ids'])
-                attention_mask_tensor = torch.tensor(batch['attention_mask'])
-                inputs = {
-                    'input_ids': input_ids_tensor.to(self.device),
-                    'attention_mask': attention_mask_tensor.to(self.device)
-                }
+                # Use pre-tokenized inputs from the dataset with proper padding
+                inputs = self.tokenizer.pad(
+                    {'input_ids': batch['input_ids'], 'attention_mask': batch['attention_mask']},
+                    padding=True,
+                    return_tensors="pt"
+                )
+                inputs = {k: v.to(self.device) for k, v in inputs.items()}
             
             # Predict
             with torch.no_grad():

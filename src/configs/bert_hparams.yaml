@@ -1,7 +1,7 @@
 #BERTurk fine-tuning hyperparameters
 
 model: 
-  name: "dbmdz/bert-base-turkish-cased"
+  name: "dbmdz/bert-base-turkish-uncased"
   max_length: 256
   num_classes: 3
 
@@ -10,7 +10,7 @@ training:
   eval_batch_size: 16
   learning_rate: 2e-5
   num_epochs: 3
-  warmup_steps: 200
+  warmup_steps: 500
   weight_decay: 0.01
   gradient_accumulation_steps: 4
   fp16: true

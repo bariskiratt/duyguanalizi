@@ -56,7 +56,7 @@ def load_data():
     
     return df
 
-def tokenize_data(texts, tokenizer, max_length=128, desc="Tokenizing"):
+def tokenize_data(texts, tokenizer, desc="Tokenizing"):
     """Tokenize texts without immediate tensor conversion - Memory optimized"""
     print(f"🔄 {desc} {len(texts):,} texts...")
     print(f"💾 Memory before tokenization: {get_memory_usage():.1f} MB")
@@ -72,9 +72,9 @@ def tokenize_data(texts, tokenizer, max_length=128, desc="Tokenizing"):
         # Tokenize batch - ensure ALL sequences are exactly max_length
         batch_encodings = tokenizer(
             batch_texts,
-            padding='max_length',  # Pad to exactly max_length, not just longest in batch
+            padding='max_length',
             truncation=True,
-            max_length=max_length,
+            max_length=256,
             return_tensors=None  # Don't convert to tensors yet
         )
         
@@ -101,12 +101,12 @@ def main():
     
     # Step 2: Load tokenizer
     print("\n🔄 Loading BERT tokenizer...")
-    tokenizer = AutoTokenizer.from_pretrained("dbmdz/bert-base-turkish-cased")
+    tokenizer = AutoTokenizer.from_pretrained("dbmdz/bert-base-turkish-uncased")
     print("✅ Tokenizer loaded successfully!")
     
     # Step 3: Split data
     print(f"\n🔄 Splitting data (80% train, 20% validation)...")
-    train_df, val_df = train_test_split(df, test_size=0.2, random_state=42)
+    train_df, val_df = train_test_split(df, test_size=0.2, random_state=42,stratify=df['label'])
     print(f"✅ Data split completed:")
     print(f"   Training samples: {len(train_df):,}")
     print(f"   Validation samples: {len(val_df):,}")

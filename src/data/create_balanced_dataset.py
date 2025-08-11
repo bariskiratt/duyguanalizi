@@ -16,7 +16,7 @@ classes = sorted(df['label'].unique().tolist())
 counts = df['label'].value_counts().to_dict()
 
 # Calculate the number of samples for each class
-target_total = 250000
+target_total = 150000
 per_class_target = min(target_total // len(classes), min(counts.values()))
 print(classes,counts,per_class_target)
 

@@ -3,35 +3,44 @@
               #requires very small learning rates to avoid catastrophic forgetting.
 
 model: 
-  name: "dbmdz/bert-base-turkish-uncased"
-  max_length: 256
+  name: "dbmdz/bert-base-turkish-cased"
+  max_length: 312 # means max word length
   num_classes: 3
 
 training:
   batch_size: 16
   eval_batch_size: 32
-  learning_rate: 2e-5
-  num_epochs: 2 # means train for 3 epochs. epoch means one pass through the entire dataset.
-  warmup_steps: 500
-  weight_decay: 0.01
+  learning_rate: 2e-5  # Further reduced - prevent gradient explosion
+  num_epochs: 3 # Increased for MLP training - needs more epochs than simple linear head
+  warmup_steps: 1440  # Further reduced with lower learning rate
+  weight_decay: 0.01  # Reduced back - too much regularization preventing learning
   gradient_accumulation_steps: 2
   fp16: true
   dataloader_pin_memory: true
-  class_weights:
-    0: 1  # Negative
-    1: 1  # Positive  
-    2: 1.25  # Neutral
+  # Class weights to handle imbalance: [nötr, pozitif, negatif]
+  # Higher weights for minority classes to improve F1 scores
+  class_weights: [1.0, 1.0, 1.0]
+
+mlp:
+  use_mlp: true  # Set to false to use simple linear head
+  hidden_sizes: [384]  # Single hidden layer - optimal for 210K samples
+  dropout_rate: 0.25  # Reduced dropout - better gradient flow
+  activation: "gelu"  # GELU - BERT compatible, smoother gradients
+  use_batch_norm: false  # Disabled - batch size 16 too small for stable BN
+  pooling_strategy: "mean"  # cls, mean, or max pooling
+
+
 
 early_stopping:
-  patience: 20 # means stop if no improvement for 3 epochs
-  threshold: 0.001
+  patience: 5 # Stop if no improvement for 3 evaluations (much more aggressive)
+  threshold: 0.005 # Higher threshold for meaningful improvement
   metric_for_best_model: "eval_f1"
   greater_is_better: true
 
 evaluation:
-  eval_steps: 500
+  eval_steps: 1500
   logging_steps: 100
-  save_steps: 1000
+  save_steps: 1500
   load_best_model_at_end: true
 
 calibration:

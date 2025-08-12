@@ -27,4 +27,4 @@ df['review_text'] = df['text_norm']
 
 out_path = "data/processed/balanced_clean.parquet"
 df[['review_text', 'label']].to_parquet(out_path, index=False)
-print(f"Saved: {out_path}, rows: {len(df)}")
+print(f"Saved: {out_path}, rows: {len(df)}, value counts: {df['label'].value_counts()}")

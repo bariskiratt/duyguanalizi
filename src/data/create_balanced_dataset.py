@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 #Ensures label is categorical(what chganges when its categorical?)
-df = pd.read_parquet("data/processed/hepsiburada_bert_format.parquet")
+df = pd.read_parquet("data/processed/hepsi_clean.parquet")
 df['label'] = df['label'].astype('category')
 print(df['label'].value_counts())
 
@@ -16,12 +16,12 @@ classes = sorted(df['label'].unique().tolist())
 counts = df['label'].value_counts().to_dict()
 
 # Calculate the number of samples for each class
-target_total = 150000
+target_total = 300000
 per_class_target = min(target_total // len(classes), min(counts.values()))
 print(classes,counts,per_class_target)
 
 balanced_parts = []
-rng = 42
+rng = 2025
 #what is cls?
 for cls in classes:
     cls_df = df[df['label'] == cls]

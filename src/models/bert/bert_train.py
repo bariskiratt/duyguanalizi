@@ -21,6 +21,29 @@ def compute_metrics(eval_pred):
 
     return{"f1":f1,"accuracy":accuracy}
 
+class WeightedLossTrainer(Trainer):
+    """Custom trainer with weighted loss"""
+    def __init__(self, class_weights=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.class_weights = class_weights
+    
+    def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+        labels = inputs.pop("labels")
+        outputs = model(**inputs)
+        logits = outputs.logits
+        
+        # Apply class weights if provided
+        if self.class_weights is not None:
+            # Convert class weights to tensor
+            weight_tensor = torch.tensor([self.class_weights[i] for i in range(len(self.class_weights))], 
+                                       device=logits.device, dtype=logits.dtype)
+            loss_fct = torch.nn.CrossEntropyLoss(weight=weight_tensor)
+        else:
+            loss_fct = torch.nn.CrossEntropyLoss()
+        
+        loss = loss_fct(logits.view(-1, self.model.config.num_labels), labels.view(-1))
+        return (loss, outputs) if return_outputs else loss
+
 
 def get_training_args():
     """Training parametrelerini yükle"""
@@ -82,15 +105,23 @@ def main():
         tokenizer=tokenizer,
         pad_to_multiple_of=8
     )
+    # Get class weights from config
+    class_weights = config.get('training', {}).get('class_weights', None)
+    if class_weights:
+        print(f"🎯 Using class weights: {class_weights}")
+    else:
+        print("⚠️  No class weights specified, using standard loss")
+    
     # Trainer oluştur
-    trainer = Trainer(
+    trainer = WeightedLossTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
         compute_metrics=compute_metrics,
         data_collator=data_collator,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=3)]
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=3)],
+        class_weights=class_weights
     )
     
     # Eğit

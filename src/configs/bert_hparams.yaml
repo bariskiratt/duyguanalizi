@@ -1,4 +1,6 @@
-#BERTurk fine-tuning hyperparameters
+  #BERTurk fine-tuning hyperparameters
+      #Low Learning Rate (2e-5): BERT is pre-trained, so fine-tuning 
+              #requires very small learning rates to avoid catastrophic forgetting.
 
 model: 
   name: "dbmdz/bert-base-turkish-uncased"
@@ -9,15 +11,19 @@ training:
   batch_size: 32
   eval_batch_size: 16
   learning_rate: 2e-5
-  num_epochs: 3
+  num_epochs: 3 # means train for 3 epochs. epoch means one pass through the entire dataset.
   warmup_steps: 500
   weight_decay: 0.01
-  gradient_accumulation_steps: 4
+  gradient_accumulation_steps: 2
   fp16: true
   dataloader_pin_memory: true
+  class_weights:
+    0: 1.0115  # Negative
+    1: 0.9334  # Positive  
+    2: 1.75  # Neutral
 
 early_stopping:
-  patience: 3
+  patience: 3 # means stop if no improvement for 3 epochs
   threshold: 0.001
   metric_for_best_model: "eval_f1"
   greater_is_better: true

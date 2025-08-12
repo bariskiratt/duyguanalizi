@@ -80,7 +80,7 @@ class BERTPredictor:
             'confidence': confidence,
             'all_probabilities': {
                 'Negative': all_probs[0],
-                'Neutral': all_probs[1], 
+                'Neutral': all_probs[1],    
                 'Positive': all_probs[2]
             }
         }

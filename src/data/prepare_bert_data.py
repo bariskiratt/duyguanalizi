@@ -38,7 +38,7 @@ def load_data():
     print(f"✅ Loaded {len(df):,} samples")
     
     print("🔄 Mapping labels...")
-    label_map = {'pozitif': 1, 'negatif': 0, 'notr': 2}
+    label_map = {'negatif': 0,'pozitif': 1,'notr': 2}
     
     # Create a function for progress_map (it needs a callable, not a dict)
     def map_label(label):
@@ -53,7 +53,7 @@ def load_data():
     for label, count in df['label'].value_counts().sort_index().items():
         label_name = {0: 'Negatif', 1: 'Pozitif', 2: 'Nötr'}[label]
         print(f"   {label_name}: {count:,}")
-    
+
     return df
 
 def tokenize_data(texts, tokenizer, desc="Tokenizing"):
@@ -72,7 +72,6 @@ def tokenize_data(texts, tokenizer, desc="Tokenizing"):
         # Tokenize batch - ensure ALL sequences are exactly max_length
         batch_encodings = tokenizer(
             batch_texts,
-            padding='max_length',
             truncation=True,
             max_length=256,
             return_tensors=None  # Don't convert to tensors yet

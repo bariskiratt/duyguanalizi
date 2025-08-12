@@ -24,8 +24,8 @@ from pathlib import Path
 
 
 def convert_to_bert_format(
-    input_path: str = "data/processed/hepsiburada_dataset.parquet",
-    output_path: str = "data/processed/hepsiburada_bert_format.parquet",
+    input_path: str = "data/processed/hepsi_clean.parquet",
+    output_path: str = "data/processed/hepsi_bert_format.parquet",
     neg_max: int = 40,
     pos_min: int = 60,
     notr_score: int= 60

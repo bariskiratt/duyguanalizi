@@ -4,7 +4,9 @@ data/raw/*.xlsx
 data/raw/*.json
 data/processed/*.parquet
 data/processed/*.csv
-
+*.parquet
+*.arrow
+*.json
 # =============== MODEL DOSYALARI =================
 src/saves/*.pkl
 src/saves/*.joblib
@@ -41,7 +43,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-
+artifacts/
 # =============== VIRTUAL ENVIRONMENTS =================
 venv/
 a_venv/
@@ -74,3 +76,8 @@ Thumbs.db
 logs/
 *.tmp
 *.temp
+
+
+# Git çıktı dosyaları
+h origin*
+git*

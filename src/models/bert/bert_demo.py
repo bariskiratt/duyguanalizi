@@ -87,8 +87,8 @@ class BERTDemo:
             'confidence': confidence,
             'probabilities': {
                 'Negative': all_probs[0],
-                'Neutral': all_probs[1], 
-                'Positive': all_probs[2]
+                'Positive': all_probs[1], 
+                'Neutral': all_probs[2]
             }
         }
     

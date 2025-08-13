@@ -74,7 +74,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--input", default="data/processed/merged.parquet", help="Input Parquet path")
     p.add_argument("--output_dir", default="data/processed", help="Output directory")
     p.add_argument("--output_name", default="balanced.parquet", help="Output filename")
-    p.add_argument("--per_class", type=int, default=75000, help="Optional per-class cap; defaults to min class size")
+    p.add_argument("--per_class", type=int, default=50000, help="Optional per-class cap; defaults to min class size")
     p.add_argument("--random_state", type=int, default=2025, help="Random seed for reproducibility")
     p.add_argument("--text_col", default="review_text", help="Name of text column in input (default: review_text)")
     p.add_argument("--label_col", default="label", help="Name of label column in input (default: label)")

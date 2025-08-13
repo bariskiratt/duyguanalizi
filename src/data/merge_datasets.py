@@ -21,7 +21,7 @@ DROP_DUPLICATES = False
 
 # Hepsiburada score→label thresholds
 NEG_MAX = 40
-POS_MIN = 60
+POS_MIN = 80
 
 
 def read_and_normalize(path: Path) -> pd.DataFrame:

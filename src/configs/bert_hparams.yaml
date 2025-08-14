@@ -8,11 +8,11 @@ model:
   num_classes: 3
 
 training:
-  batch_size: 32
+  batch_size: 16
   eval_batch_size: 32
   learning_rate: 2e-5
-  num_epochs: 4 # means train for 3 epochs. epoch means one pass through the entire dataset.
-  warmup_steps: 800
+  num_epochs: 2 # means train for 3 epochs. epoch means one pass through the entire dataset.
+  warmup_steps: 500
   weight_decay: 0.01
   gradient_accumulation_steps: 2
   fp16: true
@@ -20,10 +20,10 @@ training:
   class_weights:
     0: 1  # Negative
     1: 1  # Positive  
-    2: 1.5  # Neutral
+    2: 1.25  # Neutral
 
 early_stopping:
-  patience: 3 # means stop if no improvement for 3 epochs
+  patience: 20 # means stop if no improvement for 3 epochs
   threshold: 0.001
   metric_for_best_model: "eval_f1"
   greater_is_better: true

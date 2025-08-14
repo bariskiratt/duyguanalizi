@@ -120,7 +120,7 @@ def main():
         eval_dataset=val_dataset,
         compute_metrics=compute_metrics,
         data_collator=data_collator,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=3)],
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=30)],
         class_weights=class_weights
     )
     

@@ -9,7 +9,7 @@ INPUT_CANDIDATES = [
     "data/processed/train_data.parquet",
     "data/processed/test_data.parquet",
     # User mentioned this name; try it first
-    "data/processed/hepsiburada_bert_format_dataset.parquet",
+    "data/processed/hepsi_clean.parquet",
     # Fallback to our converter's default output name if present
     "data/processed/hepsi_bert_format.parquet",
 ]
@@ -17,7 +17,7 @@ INPUT_CANDIDATES = [
 ALLOWED_LABELS = {"negatif", "pozitif", "notr"}
 
 # Optional deduplication (set to True to drop exact duplicate texts)
-DROP_DUPLICATES = False
+DROP_DUPLICATES = True
 
 # Hepsiburada score→label thresholds
 NEG_MAX = 40

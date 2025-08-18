@@ -24,7 +24,7 @@ from pathlib import Path
 
 
 def convert_to_bert_format(
-    input_path: str = "data/processed/hepsi_clean.parquet",
+    input_path: str = "data/processed/hepsiburada.parquet",
     output_path: str = "data/processed/hepsi_bert_format.parquet",
     neg_max: int = 40,
     pos_min: int = 60,
@@ -69,11 +69,17 @@ def convert_to_bert_format(
     print(f"\nFinal shape after removing empty reviews: {result_df.shape}")
     
     # Save to parquet
-    print(f"\nSaving to {output_path}...")
-    result_df.to_parquet(output_path, index=False)
+    csv_path = "hepsi_bert_format.csv"
+    print(f"\nSaving to CSV with semicolons: {csv_path}")
+    print(f"\nSaving to {csv_path}...")
+    result_df.to_csv(csv_path, index=False, sep=";")
+    print(f"Converting CSV to Parquet: {output_path}")
+    csv_df = pd.read_csv(csv_path, sep=";")
+    csv_df.to_parquet(output_path, index=False)
     print("Done!")
     
     # Verify the output format matches train_data
+
     print("\nVerifying output format...")
     verify_df = pd.read_parquet(output_path)
     print(f"Output columns: {list(verify_df.columns)}")

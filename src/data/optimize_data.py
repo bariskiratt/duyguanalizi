@@ -1,61 +1,137 @@
+<<<<<<< HEAD
 import pandas as pd
-import re, unicodedata
-try:
-    from ftfy import fix_text
-except Exception:
-    fix_text = None
+import re
+import unicodedata
+from ftfy import fix_text
+from unidecode import unidecode
 
-def normalize_unicode(text: str) -> str:
-    s = str(text)
-    if fix_text:
-        s = fix_text(s)
-    s = unicodedata.normalize("NFKC", s)
-    s = s.replace("\u0069\u0307", "i")  # i + combining dot → i
-    s = re.sub(r"\s+", " ", s).strip()
-    return s
+class TurkishTextCleaner:
+    def __init__(self):
+        # Common Turkish character corruptions from your error analysis
+        self.turkish_fixes = {
+            # Missing first letters
+            r'\bıldız\b': 'yıldız',
+            r'\beklerim\b': 'beklerim', 
+            r'\beşekkürler\b': 'teşekkürler',
+            r'\bayal ırıklığı\b': 'hayal kırıklığı',
+            r'\bört\b': 'dört',
+            r'\büper\b': 'süper',
+            r'\bütlulukk\b': 'mutluluk',
+            r'\bemnuniyet\b': 'memnuniyet',
+            r'\biyiki\b': 'iyi ki',
+            r'\bukemmel\b': 'mükemmel',
+            r'\bükemmel\b': 'mükemmel',
+            r'\bumuşacık\b': 'yumuşacık',
+            
+            # Brand name fixes
+            r'\brima\b': 'prima',
+            r'\bpirimaa\b': 'prima',
+            r'\bpirima\b': 'prima',
+            
+            # Other common corruptions
+            r'\bohada\b': 'daha da',
+            r'\blmayin\b': 'almayın',
+            r'\bakın\b': 'bakmayın',
+            r'\berbat\b': 'berbat',
+            r'\nternetten\b': 'internetten',
+            r'\bnsana\b': 'insana',
+        }
+        
+    def fix_encoding_issues(self, text):
+        """Fix encoding and unicode issues"""
+        if not isinstance(text, str):
+            text = str(text)
+        
+        # Fix encoding issues
+        text = fix_text(text)
+        
+        # Normalize unicode
+        text = unicodedata.normalize('NFKC', text)
+        
+        # Fix common Turkish character issues
+        text = text.replace('İ', 'i').replace('I', 'ı')  # Common Turkish casing issues
+        
+        return text
+    
+    def fix_turkish_typos(self, text):
+        """Fix common Turkish typos and corruptions"""
+        for pattern, replacement in self.turkish_fixes.items():
+            text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+        return text
+    
+    def clean_text(self, text):
+        """Complete text cleaning pipeline"""
+        if pd.isna(text) or text == '':
+            return ''
+        
+        # Convert to string
+        text = str(text).strip()
+        
+        if len(text) == 0:
+            return ''
+        
+        # Step 1: Fix encoding issues
+        text = self.fix_encoding_issues(text)
+        
+        # Step 2: Fix Turkish typos
+        text = self.fix_turkish_typos(text)
+        
+        # Step 3: Remove URLs, HTML, mentions
+        text = re.sub(r'https?://\S+|www\.\S+', ' ', text)
+        text = re.sub(r'<.*?>', ' ', text)
+        text = re.sub(r'[@#]\w+', ' ', text)
+        
+        # Step 4: Keep only Turkish letters, numbers, and basic punctuation
+        text = re.sub(r'[^a-zA-ZçğıöşüÇĞIıÖŞÜ0-9\s.,!?;:\'-]', ' ', text)
+        
+        # Step 5: Normalize whitespace
+        text = re.sub(r'\s+', ' ', text).strip()
+        
+        return text
 
-CORRECTIONS = {
-    r"\brima\b": "prima",
-    r"\bükemmel\b": "mükemmel",
-    r"\bayal ırıklığı\b": "hayal kırıklığı",
-}
+def main():
+    """Enhanced data cleaning with better Turkish support"""
+    
+    print("🔄 Loading data for enhanced cleaning...")
+    cleaner = TurkishTextCleaner()
+    
+    # Load your current data
+    input_file = "data/processed/balanced_clean_dedup_sample.parquet"  # Adjust path if needed
+    df = pd.read_parquet(input_file)
+    
+    print(f"📊 Original data: {len(df)} rows")
+    print(f"📋 Columns: {df.columns.tolist()}")
+    print(f"🏷️ Label distribution:\n{df['label'].value_counts()}")
+    
+    # Clean the text
+    print("\n🧹 Applying enhanced text cleaning...")
+    df['review_text_cleaned'] = df['review_text'].apply(cleaner.clean_text)
+    
+    # Remove empty texts after cleaning
+    df = df[df['review_text_cleaned'].str.len() > 0]
+    
+    # Show some before/after examples
+    print("\n📋 Cleaning examples:")
+    for i in range(min(5, len(df))):
+        original = df.iloc[i]['review_text']
+        cleaned = df.iloc[i]['review_text_cleaned']
+        if original != cleaned:
+            print(f"Before: {original[:100]}...")
+            print(f"After:  {cleaned[:100]}...")
+            print("---")
+    
+    # Replace the review_text column
+    df['review_text'] = df['review_text_cleaned']
+    df = df.drop(columns=['review_text_cleaned'])
+    
+    # Save cleaned data
+    output_file = "data/processed/balanced_clean_enhanced.parquet"
+    df[['review_text', 'label']].to_parquet(output_file, index=False)
+    
+    print(f"\n✅ Enhanced cleaning completed!")
+    print(f"📁 Saved to: {output_file}")
+    print(f"📊 Final data: {len(df)} rows")
+    print(f"🏷️ Final label distribution:\n{df['label'].value_counts()}")
 
-def repair_typos(text: str) -> str:
-    s = normalize_unicode(text)
-    for pat, rep in CORRECTIONS.items():
-        s = re.sub(pat, rep, s, flags=re.IGNORECASE)
-    return s
-
-df = pd.read_parquet("data/processed/balanced.parquet")
-print(len(df),df.columns.tolist())
-print(df['label'].value_counts())
-
-df = df.dropna(subset=['review_text'])
-df = df[df['review_text'].str.strip().str.len() > 0]
-
-df['review_text'] = df['review_text'].astype(str)
-
-df['text_norm'] = df['review_text']
-# Unicode normalize + dar typo düzeltmeleri (Türkçe harfleri koruyarak)
-df['text_norm'] = df['text_norm'].apply(repair_typos)
-df['text_norm'] = df['text_norm'].str.replace(r'https?://\S+|www\.\S+', ' ', regex=True)   # URLs
-df['text_norm'] = df['text_norm'].str.replace(r'<.*?>', ' ', regex=True)                   # HTML
-df['text_norm'] = df['text_norm'].str.replace(r'[@#]\w+', ' ', regex=True)                 # @mention / #hashtag
-df['text_norm'] = df['text_norm'].str.replace(r'[^A-Za-zÇĞİÖŞÜçğıöşü\s]', ' ', regex=True)          # keep TR letters (both cases) + spaces
-df['text_norm'] = df['text_norm'].str.replace(r'\s+', ' ', regex=True).str.strip()         # collapse spaces (no trailing \)
-
-# Çok kısa metinleri ele (>=3 kelime)
-df = df[df['text_norm'].str.split().str.len() >= 3]
-
-
-# If the same normalized text appears with multiple labels, take the most frequent (mode)
-mode_labels = (df.groupby('text_norm')['label'].agg(lambda s: s.mode().iat[0]))
-df = (df.drop(columns=['label'])
-        .drop_duplicates(subset=['text_norm'])
-        .merge(mode_labels.rename('label'), left_on='text_norm', right_index=True, how='left'))
-
-df['review_text'] = df['text_norm']
-
-out_path = "data/processed/balanced_clean.parquet"
-df[['review_text', 'label']].to_parquet(out_path, index=False)
-print(f"Saved: {out_path}, rows: {len(df)}")
+if __name__ == "__main__":
+    main()

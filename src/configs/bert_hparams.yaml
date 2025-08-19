@@ -27,7 +27,7 @@ mlp:
   dropout_rate: 0.25  # Reduced dropout - better gradient flow
   activation: "gelu"  # GELU - BERT compatible, smoother gradients
   use_batch_norm: false  # Disabled - batch size 16 too small for stable BN
-  pooling_strategy: "mean"  # cls, mean, or max pooling
+  pooling_strategy: "cls"  # cls, mean, or max pooling
 
 
 

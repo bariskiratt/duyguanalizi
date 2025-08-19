@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import argparse, json
 from sklearn.model_selection import train_test_split
 import pandas as pd
@@ -6,7 +7,7 @@ from pathlib import Path
 
 def parse_args():
     p = argparse.ArgumentParser(description="Create a class-balanced parquet with NaNs dropped first")
-    p.add_argument("--input", type=str, default="data/processed/hepsiburada_bert_format.parquet", help="Input parquet path")
+    p.add_argument("--input", type=str, default="data/processed/hepsi_bert_format.parquet", help="Input parquet path")
     p.add_argument("--output_dir", type=str, default="data/processed/hepsiburada_balanced", help="Output directory")
     p.add_argument("--text_col", type=str, default="review_text", help="Text column name")
     p.add_argument("--label_col", type=str, default="label", help="Label column name")
@@ -14,7 +15,7 @@ def parse_args():
     p.add_argument("--target_total", type=int, default=None, help="Target total samples (split uniformly across classes)")
     p.add_argument("--class_counts_json", type=str, default=None, help="JSON file mapping label->desired_count (overrides others)")
     p.add_argument("--drop_duplicates", action="store_true", help="Drop duplicates by text column before sampling")
-    p.add_argument("--seed", type=int, default=42, help="Random seed")
+    p.add_argument("--seed", type=int, default=1923, help="Random seed")
     return p.parse_args()
 
 

@@ -4,7 +4,11 @@
       "filename": "data-00000-of-00001.arrow"
     }
   ],
+<<<<<<< HEAD
+  "_fingerprint": "9185c515d78bd7a0",
+=======
   "_fingerprint": "ef88e5b28b17a2a5",
+>>>>>>> 7b03e40e417aaee016f539c030632c6699f6325b
   "_format_columns": null,
   "_format_kwargs": {},
   "_format_type": null,

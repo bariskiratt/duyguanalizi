@@ -128,10 +128,12 @@ class BertMLPEvaluator:
         self.model.eval()
         
         # Label mappings
-        self.label_map = {0: "Negative", 1: "Neutral", 2: "Positive"}
+        self.label_map = {'negatif': 0, 'pozitif': 1, 'notr': 2}  # Make sure this matches your data exactly
+        self.id2label = {v: k for k, v in self.label_map.items()}  # Reverse mapping for predictions
+
         print("✅ Model loaded successfully!")
     
-    def evaluate_dataset(self, dataset_path="data/processed/bert_val"):
+    def evaluate_dataset(self, dataset_path="data/processed/bert_test"):
         """Evaluate model on validation dataset with detailed analysis"""
         print(f"\n📊 Loading validation dataset from: {dataset_path}")
         
@@ -224,7 +226,12 @@ class BertMLPEvaluator:
                 texts = self.tokenizer.batch_decode(val_dataset['input_ids'], skip_special_tokens=True)
             except Exception:
                 texts = [""] * len(val_dataset)
-
+        # Coerce to integer IDs
+        true_labels = [
+            self.label_map[l] if isinstance(l, str) else int(l)
+            for l in true_labels
+        ]
+        predictions = [int(p) for p in predictions]
         return {
             'predictions': predictions,
             'true_labels': true_labels,
@@ -235,49 +242,55 @@ class BertMLPEvaluator:
         }
     
     def calculate_advanced_metrics(self, results):
-        """Calculate comprehensive metrics including bias analysis"""
-        predictions = results['predictions']
-        true_labels = results['true_labels']
+        """Calculate comprehensive metrics with consistent int labels."""
+        predictions = list(map(int, results['predictions']))
+        true_labels = list(map(int, results['true_labels']))
         confidences = results['confidences']
         probabilities = np.array(results['probabilities'])
-        
+
+        labels = [0, 1, 2]
+        target_names = [self.id2label[i] for i in labels]
+
         # Basic metrics
         accuracy = accuracy_score(true_labels, predictions)
-        f1_macro = f1_score(true_labels, predictions, average='macro')
-        f1_weighted = f1_score(true_labels, predictions, average='weighted')
-        
-        # Per-class metrics
-        ordered_label_names = [self.label_map[i] for i in sorted(self.label_map.keys())]
-        report = classification_report(true_labels, predictions,
-                                       target_names=ordered_label_names,
-                                       output_dict=True)
-        
-        # Confusion matrix
-        cm = confusion_matrix(true_labels, predictions)
-        
-        # Confidence statistics
-        avg_confidence = np.mean(confidences)
-        
-        # Advanced metrics for negative class analysis
+        f1_macro = f1_score(true_labels, predictions, average='macro', labels=labels)
+        f1_weighted = f1_score(true_labels, predictions, average='weighted', labels=labels)
+
+        # Debug (optional)
+        print("🔍 DEBUG (after coercion):")
+        print("   true_labels unique values:", sorted(set(true_labels)))
+        print("   predictions unique values:", sorted(set(predictions)))
+        print("   target_names:", target_names)
+
+        report = classification_report(
+            true_labels, predictions,
+            labels=labels,
+            target_names=target_names,
+            zero_division=0,
+            output_dict=True
+        )
+
+        cm = confusion_matrix(true_labels, predictions, labels=labels)
+        avg_confidence = float(np.mean(confidences))
+
         negative_class_metrics = self._analyze_negative_class(predictions, true_labels, probabilities, confidences)
-        
-        # Bias analysis
         bias_analysis = self._analyze_model_bias(predictions, true_labels, probabilities)
-        
-        metrics = {
-            'accuracy': accuracy,
-            'f1_macro': f1_macro,
-            'f1_weighted': f1_weighted,
+
+        # Build per-class metrics dict keyed by readable names
+        per_class = {target_names[i]: report[target_names[i]] for i in range(len(labels))}
+
+        return {
+            'accuracy': float(accuracy),
+            'f1_macro': float(f1_macro),
+            'f1_weighted': float(f1_weighted),
             'average_confidence': avg_confidence,
             'classification_report': report,
             'confusion_matrix': cm.tolist(),
-            'per_class_metrics': {name: report[name] for name in ordered_label_names},
+            'per_class_metrics': per_class,
             'negative_class_analysis': negative_class_metrics,
             'bias_analysis': bias_analysis
         }
-        
-        return metrics
-    
+
     def _analyze_negative_class(self, predictions, true_labels, probabilities, confidences):
         """Detailed analysis of negative class performance"""
         # Convert to numpy arrays to ensure proper operations
@@ -299,7 +312,7 @@ class BertMLPEvaluator:
         # Analyze where negative samples are misclassified
         misclassified_as = {}
         for pred in negative_predictions[negative_predictions != 0]:
-            pred_label = self.label_map[pred]
+            pred_label = self.id2label[pred]
             misclassified_as[pred_label] = misclassified_as.get(pred_label, 0) + 1
         
         # Confidence analysis for negative class
@@ -339,12 +352,12 @@ class BertMLPEvaluator:
         for i in range(3):
             pred_ratio = pred_distribution[i] / len(predictions)
             true_ratio = true_distribution[i] / len(true_labels)
-            bias_scores[self.label_map[i]] = float(pred_ratio - true_ratio)
+            bias_scores[self.id2label[i]] = float(pred_ratio - true_ratio)
         
         # Average probability for each class
         avg_probabilities = {}
         for i in range(3):
-            avg_probabilities[self.label_map[i]] = float(np.mean(probabilities[:, i]))
+            avg_probabilities[self.id2label[i]] = float(np.mean(probabilities[:, i]))
         
         return {
             'prediction_distribution': pred_distribution.tolist(),
@@ -367,8 +380,8 @@ class BertMLPEvaluator:
             'true_label': results['true_labels'],
             'predicted_label': results['predictions'],
             'confidence': results['confidences'],
-            'true_sentiment': [self.label_map[label] for label in results['true_labels']],
-            'predicted_sentiment': [self.label_map[label] for label in results['predictions']],
+            'true_sentiment': [self.id2label[label] for label in results['true_labels']],
+            'predicted_sentiment': [self.id2label[label] for label in results['predictions']],
             'correct': np.array(results['true_labels']) == np.array(results['predictions']),
             'prob_negative': [probs[0] for probs in results['probabilities']],
             'prob_neutral': [probs[2] for probs in results['probabilities']],
@@ -402,7 +415,7 @@ class BertMLPEvaluator:
         cm = np.array(cm)
         
         plt.figure(figsize=(10, 8))
-        ordered_label_names = [self.label_map[i] for i in sorted(self.label_map.keys())]
+        ordered_label_names = [self.id2label[i] for i in sorted(self.id2label.keys())]
         
         # Create heatmap with percentages
         cm_percent = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis] * 100

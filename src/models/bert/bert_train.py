@@ -29,10 +29,47 @@ def compute_metrics(eval_pred):
     predictions, labels = eval_pred
     predictions = np.argmax(predictions, axis=1)
     
-    f1 = f1_score(labels, predictions, average="macro")
+    # Overall metrics
+    f1_macro = f1_score(labels, predictions, average="macro")
+    f1_weighted = f1_score(labels, predictions, average="weighted")
     accuracy = accuracy_score(labels, predictions)
     
-    return {"f1": f1, "accuracy": accuracy}
+    # Per-class F1 scores
+    f1_per_class = f1_score(labels, predictions, average=None, labels=[0, 1, 2])
+    
+    # Class distribution in predictions
+    unique_preds, pred_counts = np.unique(predictions, return_counts=True)
+    pred_distribution = {f"pred_class_{i}": 0 for i in [0, 1, 2]}
+    for cls, count in zip(unique_preds, pred_counts):
+        pred_distribution[f"pred_class_{cls}"] = count
+    
+    # Check if all classes are being predicted
+    missing_classes = [i for i in [0, 1, 2] if i not in unique_preds]
+    
+    metrics = {
+        "f1": f1_macro,
+        "f1_macro": f1_macro,
+        "f1_weighted": f1_weighted,
+        "accuracy": accuracy,
+        "f1_class_0": f1_per_class[0],
+        "f1_class_1": f1_per_class[1], 
+        "f1_class_2": f1_per_class[2],
+        "missing_classes_count": len(missing_classes),
+        **pred_distribution
+    }
+    
+    # Print detailed class analysis every evaluation
+    print(f"\n📊 Evaluation Metrics:")
+    print(f"   F1 Macro: {f1_macro:.4f}")
+    print(f"   F1 Per Class: [0: {f1_per_class[0]:.4f}, 1: {f1_per_class[1]:.4f}, 2: {f1_per_class[2]:.4f}]")
+    print(f"   Accuracy: {accuracy:.4f}")
+    print(f"   Predictions distribution: {pred_distribution}")
+    if missing_classes:
+        print(f"   ⚠️  Missing classes in predictions: {missing_classes}")
+    else:
+        print(f"   ✅ All classes being predicted!")
+    
+    return metrics
 
 
 class WeightedLossTrainer(Trainer):
@@ -72,6 +109,21 @@ class WeightedLossTrainer(Trainer):
         """Called when logging"""
         if self.progress_callback and logs:
             self.progress_callback('log', logs)
+            
+        # Enhanced logging for class monitoring
+        if logs:
+            log_str = f"📉 Step {state.global_step}: Loss: {logs.get('loss', 'N/A'):.4f}"
+            if 'eval_f1' in logs:
+                log_str += f" | 🎯 F1: {logs['eval_f1']:.4f}"
+            if 'eval_accuracy' in logs:
+                log_str += f" | ✅ Acc: {logs['eval_accuracy']:.4f}"
+            if 'eval_missing_classes_count' in logs:
+                missing_count = logs['eval_missing_classes_count']
+                if missing_count > 0:
+                    log_str += f" | ⚠️  Missing {missing_count} classes"
+                else:
+                    log_str += f" | ✅ All classes predicted"
+            console.print(log_str)
     
     def on_evaluate(self, args, state, control, **kwargs):
         """Called during evaluation"""
@@ -388,6 +440,8 @@ def main():
             metric_for_best_model=config['early_stopping']['metric_for_best_model'],
             greater_is_better=config['early_stopping']['greater_is_better'],
             report_to=None,  # Disable wandb/tensorboard for cleaner output
+            save_safetensors=True,  # Use safetensors for better compression
+            dataloader_pin_memory=False,  # Reduce memory usage
         )
         
         # Data collator
@@ -422,15 +476,18 @@ def main():
         from torch.optim import AdamW
         from transformers import get_linear_schedule_with_warmup
         
-        # Calculate training steps
-        num_training_steps = (len(train_dataset) // training_args.per_device_train_batch_size) * training_args.num_train_epochs
+        # Calculate training steps (accounting for gradient accumulation)
+        effective_batch_size = training_args.per_device_train_batch_size * training_args.gradient_accumulation_steps
+        num_training_steps = (len(train_dataset) // effective_batch_size) * training_args.num_train_epochs
         num_warmup_steps = training_args.warmup_steps
         
         # Create optimizer with separate learning rates
+        bert_lr = float(config['training']['learning_rate'])  # Use config learning rate
+        mlp_lr = bert_lr * 2.5  # 2.5x higher for MLP head (more conservative)
         optimizer = AdamW(
             [
-                {"params": model.bert.parameters(), "lr": 1e-5, "weight_decay": 0.01},
-                {"params": model.mlp.parameters(), "lr": 5e-5, "weight_decay": 0.01},  # 5x higher for MLP head
+                {"params": model.bert.parameters(), "lr": bert_lr, "weight_decay": 0.01},
+                {"params": model.mlp.parameters(), "lr": mlp_lr, "weight_decay": 0.01},
             ],
             betas=(0.9, 0.999), 
             eps=1e-8
@@ -443,7 +500,7 @@ def main():
             num_training_steps
         )
         
-        console.print("⚡ [yellow]Using separate learning rates: BERT=1e-5, MLP Head=5e-5[/yellow]")
+        console.print(f"⚡ [yellow]Using separate learning rates: BERT={bert_lr}, MLP Head={mlp_lr}[/yellow]")
         optimizers = (optimizer, lr_scheduler)
     else:
         optimizers = None

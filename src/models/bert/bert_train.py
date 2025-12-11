@@ -34,40 +34,30 @@ def compute_metrics(eval_pred):
     f1_weighted = f1_score(labels, predictions, average="weighted")
     accuracy = accuracy_score(labels, predictions)
     
-    # Per-class F1 scores
-    f1_per_class = f1_score(labels, predictions, average=None, labels=[0, 1, 2])
+    # --- DEĞİŞEN KISIM: Sadece 0 ve 1 için hesapla ---
+    f1_per_class = f1_score(labels, predictions, average=None, labels=[0, 1])
     
-    # Class distribution in predictions
     unique_preds, pred_counts = np.unique(predictions, return_counts=True)
-    pred_distribution = {f"pred_class_{i}": 0 for i in [0, 1, 2]}
+    pred_distribution = {f"pred_class_{i}": 0 for i in [0, 1]}
     for cls, count in zip(unique_preds, pred_counts):
         pred_distribution[f"pred_class_{cls}"] = count
     
-    # Check if all classes are being predicted
-    missing_classes = [i for i in [0, 1, 2] if i not in unique_preds]
-    
+    # Metrics sözlüğünü 2 sınıfa göre güncelle
     metrics = {
         "f1": f1_macro,
         "f1_macro": f1_macro,
         "f1_weighted": f1_weighted,
         "accuracy": accuracy,
-        "f1_class_0": f1_per_class[0],
-        "f1_class_1": f1_per_class[1], 
-        "f1_class_2": f1_per_class[2],
-        "missing_classes_count": len(missing_classes),
+        "f1_negatif": f1_per_class[0] if len(f1_per_class) > 0 else 0.0,
+        "f1_pozitif": f1_per_class[1] if len(f1_per_class) > 1 else 0.0,
         **pred_distribution
     }
     
-    # Print detailed class analysis every evaluation
+    # Print kısmı
     print(f"\n📊 Evaluation Metrics:")
     print(f"   F1 Macro: {f1_macro:.4f}")
-    print(f"   F1 Per Class: [0: {f1_per_class[0]:.4f}, 1: {f1_per_class[1]:.4f}, 2: {f1_per_class[2]:.4f}]")
     print(f"   Accuracy: {accuracy:.4f}")
-    print(f"   Predictions distribution: {pred_distribution}")
-    if missing_classes:
-        print(f"   ⚠️  Missing classes in predictions: {missing_classes}")
-    else:
-        print(f"   ✅ All classes being predicted!")
+    print(f"   Sınıf Bazlı F1: [Negatif: {metrics['f1_negatif']:.4f}, Pozitif: {metrics['f1_pozitif']:.4f}]")
     
     return metrics
 
@@ -303,23 +293,35 @@ def check_gpu_availability():
 
 def _coerce_labels_to_int64(ds):
     """Ensure dataset has an integer 'labels' column suitable for Trainer."""
-    label_map = {'negatif': 0, 'pozitif': 1, 'notr': 2}
+    
+    # --- YENİ EKLENEN KISIM: Nötr Temizliği ---
+    # Label kolonunu bul (bazen 'label', bazen 'labels' olabilir)
+    col_name = 'labels' if 'labels' in ds.column_names else 'label'
+    
+    # 'notr' olan satırları atıyoruz. Sadece negatif ve pozitif kalıyor.
+    ds = ds.filter(lambda x: x[col_name] != 'notr')
+    # ------------------------------------------
+
+    # Map artık sadece 2 sınıf
+    label_map = {'negatif': 0, 'pozitif': 1}
+    
     cols = ds.column_names
-    # Rename 'label' -> 'labels' if needed
     if 'labels' not in cols and 'label' in cols:
         ds = ds.rename_column('label', 'labels')
-    # If labels are strings, map them
+    
+    # String -> ID dönüşümü
     dtype_str = str(ds.features['labels'].dtype) if 'labels' in ds.features else ''
     if 'string' in dtype_str:
-        ds = ds.map(lambda ex: {'labels': label_map.get(ex['labels'], 2)}, desc='Map string labels to ids')
-    # If labels are lists, squash to scalar
+        ds = ds.map(lambda ex: {'labels': label_map.get(ex['labels'])}, desc='Map string labels to ids')
+    
+    # Liste yapısını düzeltme (Squash)
     def _squash(ex):
         v = ex['labels']
         if isinstance(v, list):
-            return {'labels': v[0] if len(v) > 0 else 2}
+            return {'labels': v[0] if len(v) > 0 else 0}
         return {'labels': v}
+        
     ds = ds.map(_squash, desc='Squash nested labels')
-    # Cast to int64
     ds = ds.cast_column('labels', Value('int64'))
     return ds
 

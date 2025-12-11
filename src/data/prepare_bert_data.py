@@ -1,259 +1,192 @@
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
-from datasets import Dataset
+from datasets import Dataset, Features, Value, Sequence
 from transformers import AutoTokenizer
 from tqdm import tqdm
 import os
 import gc
 import psutil
-import time
 import torch
+from pathlib import Path
 
-
-
-
-
+# --- Sistem Ayarları ---
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
-print(f"Using device: {device}")
-
-if use_cuda:
-    print(f"GPU count: {torch.cuda.device_count()}")
-    print(f"GPU name: {torch.cuda.get_device_name(0)}")
-
 
 def get_memory_usage():
-    """Get current memory usage in MB"""
+    """Mevcut bellek kullanımını MB cinsinden döndürür"""
     process = psutil.Process()
     return process.memory_info().rss / 1024 / 1024
 
 def cleanup_memory():
-    """Force garbage collection to free memory"""
+    """Belleği temizler"""
     gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
 def print_system_info():
-    """Print system resource information"""
-    print("🖥️ System Information:")
-    print(f"   CPU cores: {psutil.cpu_count()}")
-    print(f"   Total RAM: {psutil.virtual_memory().total / 1024 / 1024 / 1024:.1f} GB")
-    print(f"   Available RAM: {psutil.virtual_memory().available / 1024 / 1024 / 1024:.1f} GB")
-    print(f"   RAM usage: {psutil.virtual_memory().percent:.1f}%")
+    """Sistem kaynak bilgilerini yazdırır"""
+    print("🖥️  Sistem Bilgileri:")
+    print(f"   CPU Çekirdekleri: {psutil.cpu_count()}")
+    print(f"   Toplam RAM: {psutil.virtual_memory().total / 1024 / 1024 / 1024:.1f} GB")
+    print(f"   Kullanılabilir RAM: {psutil.virtual_memory().available / 1024 / 1024 / 1024:.1f} GB")
+    if use_cuda:
+        print(f"   GPU: {torch.cuda.get_device_name(0)}")
 
-
+def process_labels(labels):
+    """
+    String etiketleri (negatif/pozitif) integer (0/1) formatına çevirir.
+    BERT eğitimi için kritik adımdır.
+    """
+    print(f"🔄 Etiketler işleniyor ({len(labels):,} adet)...")
+    label_map = {'negatif': 0, 'pozitif': 1}
+    processed = []
+    
+    for x in labels:
+        if isinstance(x, str):
+            clean_x = x.strip().lower()
+            # Bilinmeyen etiket gelirse varsayılan olarak 0 ata veya hata ver
+            processed.append(label_map.get(clean_x, 0))
+        elif isinstance(x, (int, float)):
+            processed.append(int(x))
+        else:
+            processed.append(0)
+            
+    return processed
 
 def tokenize_data(texts, tokenizer, desc="Tokenizing"):
-    """Tokenize texts without immediate tensor conversion - Memory optimized"""
-    print(f"🔄 {desc} {len(texts):,} texts...")
-    print(f"💾 Memory before tokenization: {get_memory_usage():.1f} MB")
+    """
+    Metinleri tokenize eder - Bellek dostu batch işlemi
+    """
+    print(f"🔄 {desc}...")
     
-    # Clean and validate texts before tokenization
+    # 1. Metin Temizliği
     cleaned_texts = []
-    for i, text in enumerate(texts):
-        if pd.isna(text) or not isinstance(text, str) or len(str(text).strip()) == 0:
-            print(f"⚠️ Warning: Invalid text at index {i}: {text}")
-            cleaned_texts.append("")  # Use empty string for invalid texts
+    for text in texts:
+        if pd.isna(text) or not isinstance(text, str) or not text.strip():
+            cleaned_texts.append("") # Boş metinler için yer tutucu
         else:
             cleaned_texts.append(str(text).strip())
     
-    # Use smaller batches to prevent OOM
-    batch_size = 25  # Reduced from 100 to 25
-    all_encodings = {'input_ids': [], 'attention_mask': []}
+    # 2. Batch İşlemi
+    batch_size = 100 # Hız için artırılabilir, bellek hatası alırsanız 25'e düşürün
+    all_input_ids = []
+    all_attention_masks = []
     
     total_batches = (len(cleaned_texts) + batch_size - 1) // batch_size
-    print(f"📊 Processing {total_batches} batches of size {batch_size}")
     
-    # Create progress bar
-    for batch_idx, i in enumerate(tqdm(range(0, len(cleaned_texts), batch_size), desc=desc)):
-        try:
-            batch_texts = cleaned_texts[i:i + batch_size]
+    for i in tqdm(range(0, len(cleaned_texts), batch_size), desc=desc, total=total_batches):
+        batch_texts = cleaned_texts[i:i + batch_size]
+        
+        # Sadece bu batch'i tokenize et
+        # Padding='max_length' yerine dinamik padding veya sabit uzunluk kullanıyoruz
+        batch_encodings = tokenizer(
+            batch_texts,
+            truncation=True,
+            padding='max_length', # Dataset oluştururken tutarlılık için
+            max_length=256,       # Bert_train için uygun uzunluk
+            return_tensors=None
+        )
+        
+        all_input_ids.extend(batch_encodings['input_ids'])
+        all_attention_masks.extend(batch_encodings['attention_mask'])
+        
+        # Periyodik bellek temizliği
+        if i % (batch_size * 10) == 0:
+            cleanup_memory()
             
-            # Show progress every 5 batches
-            if batch_idx % 5 == 0:
-                print(f"   Batch {batch_idx}/{total_batches}, Memory: {get_memory_usage():.1f} MB")
-            
-            # Filter out empty texts
-            valid_batch = [text for text in batch_texts if text.strip()]
-            
-            if not valid_batch:
-                # If all texts in batch are empty, create dummy encodings
-                dummy_encoding = tokenizer(
-                    [""], 
-                    truncation=True,
-                    return_tensors=None,
-                    max_length=256  # Reduced from 312 to 256
-                )
-                for _ in range(len(batch_texts)):
-                    all_encodings['input_ids'].append(dummy_encoding['input_ids'][0])
-                    all_encodings['attention_mask'].append(dummy_encoding['attention_mask'][0])
-            else:
-                # Tokenize valid batch
-                batch_encodings = tokenizer(
-                    valid_batch,
-                    truncation=True,
-                    return_tensors=None,
-                    max_length=256  # Reduced from 312 to 256
-                )
-                
-                # Handle mixed valid/invalid texts in batch
-                batch_idx_encoding = 0
-                for text in batch_texts:
-                    if text.strip():
-                        all_encodings['input_ids'].append(batch_encodings['input_ids'][batch_idx_encoding])
-                        all_encodings['attention_mask'].append(batch_encodings['attention_mask'][batch_idx_encoding])
-                        batch_idx_encoding += 1
-                    else:
-                        # Add dummy encoding for empty text
-                        dummy_encoding = tokenizer(
-                            [""], 
-                            truncation=True,
-                            return_tensors=None,
-                            max_length=256
-                        )
-                        all_encodings['input_ids'].append(dummy_encoding['input_ids'][0])
-                        all_encodings['attention_mask'].append(dummy_encoding['attention_mask'][0])
-            
-            # Clean up every 10 batches to free memory
-            if batch_idx % 10 == 0:
-                cleanup_memory()
-                
-        except Exception as e:
-            print(f"❌ Error in batch {batch_idx}: {e}")
-            print(f"   Batch texts sample: {batch_texts[:2] if batch_texts else 'None'}")
-            raise e
-    
-    print(f"✅ {desc} completed!")
-    print(f"💾 Memory after tokenization: {get_memory_usage():.1f} MB")
-    return all_encodings
+    return {'input_ids': all_input_ids, 'attention_mask': all_attention_masks}
 
 def main():
     try:
-        print("🚀 Starting BERT data preparation...")
+        print("🚀 BERT Veri Hazırlama Başlıyor...")
         print("=" * 50)
-        
-        # Print system information
         print_system_info()
-        print(f"💾 Initial memory usage: {get_memory_usage():.1f} MB")
-    
         
-        # Check available memory
-        available_memory = psutil.virtual_memory().available / 1024 / 1024
-        print(f"💾 Available system memory: {available_memory:.1f} MB")
+        # Veri dizinini bul (script konumundan 2 seviye yukarı)
+        script_dir = Path(__file__).parent
+        repo_root = script_dir.parent.parent  # src/data -> src -> repo_root (duyguanalizi)
+        data_dir = repo_root / "data" / "processed"
+        train_path = data_dir / "train.parquet"
+        val_path = data_dir / "test.parquet"
+        output_dir = data_dir  # Çıktı doğrudan processed altında
+        output_dir.mkdir(parents=True, exist_ok=True)
         
-        if available_memory < 1000:  # Less than 1GB
-            print("⚠️ Warning: Low memory available!")
+        print(f"\n📍 Dosya konumları:")
+        print(f"   Train: {train_path}")
+        print(f"   Val: {val_path}")
+        print(f"   Output: {output_dir}")
         
-        # Step 2: Load tokenizer
-        print("\n🔄 Loading BERT tokenizer...")
-        tokenizer = AutoTokenizer.from_pretrained("dbmdz/bert-base-turkish-cased")
-        print("✅ Tokenizer loaded successfully!")
+        # 1. Tokenizer Yükle
+        model_name = "dbmdz/bert-base-turkish-cased"
+        print(f"\n🔄 Tokenizer yükleniyor ({model_name})...")
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
         
-        # Step 3: Load separate train and validation datasets
-        print(f"\n🔄 Loading separate train and validation datasets...")
+        # 2. Verisetlerini Yükle
+        print("\n📂 Parquet dosyaları okunuyor...")
+        train_df = pd.read_parquet(train_path)
+        val_df = pd.read_parquet(val_path)  # test.parquet'i validation olarak kullanıyoruz
+        
+        print(f"   Eğitim verisi: {len(train_df):,} satır")
+        print(f"   Doğrulama verisi: {len(val_df):,} satır")
 
-        # Load training data from one file
-        train_df = pd.read_parquet("data/processed/train_final.parquet")
-        print(f"✅ Training data loaded: {len(train_df):,} samples")
-
-        # Load validation data from another file  
-        val_df = pd.read_parquet("data/processed/test.parquet")
-        print(f"✅ Validation data loaded: {len(val_df):,} samples")
-
-        print(f"📊 Dataset sizes:")
-        print(f"   Training samples: {len(train_df):,}")
-        print(f"   Validation samples: {len(val_df):,}")
+        # 3. Etiketleri Dönüştür (ÖNEMLİ ADIM)
+        print("\n🏷️ Etiketler dönüştürülüyor (negatif->0, pozitif->1)...")
+        train_labels = process_labels(train_df['label'].tolist())
+        val_labels = process_labels(val_df['label'].tolist())
         
-
-        
-        # Test with small subset first
-        print("\n🧪 Testing with small subset...")
-        test_df = train_df.head(50)  # Only first 50 samples
-        test_encodings = tokenize_data(
-            test_df['review_text'].tolist(), 
-            tokenizer, 
-            desc="Testing tokenization"
-        )
-        print(f"✅ Test completed with {len(test_encodings['input_ids'])} samples")
-        
-        # Step 4: Tokenize the data
-        print("\n" + "=" * 50)
-        print("🔄 Starting full tokenization...")
-        
-        train_encodings = tokenize_data(
-            train_df['review_text'].tolist(), 
-            tokenizer, 
-            desc="Tokenizing training data"
-        )
-        
-        val_encodings = tokenize_data(
-            val_df['review_text'].tolist(), 
-            tokenizer, 
-            desc="Tokenizing validation data"
-        )
-        
-        # Check if we have data after tokenization
-        if len(train_encodings['input_ids']) == 0 or len(val_encodings['input_ids']) == 0:
-            print("❌ No valid data after tokenization!")
-            return
-        
-        # Clean up text data to free memory
+        # 4. Tokenizasyon
+        print("\n🔄 Tokenizasyon başlıyor...")
+        train_encodings = tokenize_data(train_df['review_text'].tolist(), tokenizer, desc="Train Tokenizing")
         cleanup_memory()
-        print(f"💾 Memory after tokenization: {get_memory_usage():.1f} MB")
         
-        # Step 5: Create datasets
-        print("\n🔄 Creating Hugging Face datasets...")
+        val_encodings = tokenize_data(val_df['review_text'].tolist(), tokenizer, desc="Val Tokenizing")
+        cleanup_memory()
         
-        print("   Creating training dataset...")
+        # 5. Hugging Face Dataset Oluşturma ve Kaydetme
+        print("\n💾 Datasetler diske kaydediliyor...")
+        
+        # Veri şeması tanımla (Performans ve tip güvenliği için)
+        features = Features({
+            'input_ids': Sequence(Value('int32')),
+            'attention_mask': Sequence(Value('int8')),
+            'labels': Value('int64') # Trainer int64 bekler
+        })
+
+        # Train Dataset
         train_dataset = Dataset.from_dict({
             'input_ids': train_encodings['input_ids'],
             'attention_mask': train_encodings['attention_mask'],
-            'labels': train_df['label'].tolist()
-        })
+            'labels': train_labels
+        }, features=features)
         
-        print("   Creating validation dataset...")
+        train_save_path = output_dir / "bert_train"
+        train_dataset.save_to_disk(str(train_save_path))
+        print(f"✅ Eğitim seti kaydedildi: {train_save_path}")
+        
+        # Bellek temizliği
+        del train_dataset, train_encodings, train_labels
+        cleanup_memory()
+
+        # Validation Dataset
         val_dataset = Dataset.from_dict({
             'input_ids': val_encodings['input_ids'],
             'attention_mask': val_encodings['attention_mask'],
-            'labels': val_df['label'].tolist()
-        })
-        print("✅ Datasets created successfully!")
+            'labels': val_labels
+        }, features=features)
         
-        # Step 6: Save datasets
-        print("\n🔄 Saving datasets...")
-        
-        # Create directories if they don't exist
-        os.makedirs("data/processed", exist_ok=True)
-        
-        print("   Saving training dataset...")
-        train_dataset.save_to_disk("data/processed/bert_train")
-        
-        print("   Saving validation dataset...")
-        val_dataset.save_to_disk("data/processed/bert_val")
-        
-        # Clean up encodings to free memory
-        del train_encodings, val_encodings
-        cleanup_memory()
-        
-        # Final summary
+        val_save_path = output_dir / "bert_val"
+        val_dataset.save_to_disk(str(val_save_path))
+        print(f"✅ Doğrulama seti kaydedildi: {val_save_path}")
+
         print("\n" + "=" * 50)
-        print("🎉 BERT data preparation completed successfully!")
-        print(f"📊 Final Summary:")
-        print(f"   Training dataset size: {len(train_dataset):,}")
-        print(f"   Validation dataset size: {len(val_dataset):,}")
-        print(f"   Saved to: duyguanalizi/data/processed/bert_train & duyguanalizi/data/processed/bert_val")
-        print(f"💾 Final memory usage: {get_memory_usage():.1f} MB")
+        print("🎉 Hazırlık Tamamlandı! Artık 'bert_train.py' çalıştırılabilir.")
         print("=" * 50)
-        
-    except MemoryError as e:
-        print(f"❌ Memory error: {e}")
-        print("💡 Try reducing batch size or processing smaller chunks")
-        return
+
     except Exception as e:
-        print(f"❌ Unexpected error: {e}")
+        print(f"\n❌ Hata oluştu: {e}")
         import traceback
         traceback.print_exc()
-        return
-
 
 if __name__ == "__main__":
     main()

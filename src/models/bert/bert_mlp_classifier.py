@@ -20,11 +20,12 @@ class BertMLPConfig:
 class BertMLPClassifier(nn.Module):
     """BERT with Multi-Layer Perceptron head for classification"""
     
-    def __init__(self, model_name, num_classes=3, mlp_config=None):
+    # DÜZELTME: num_classes varsayılan değeri 3'ten 2'ye çekildi
+    def __init__(self, model_name, num_classes=2, mlp_config=None):
         super().__init__()
         
         # Load BERT backbone
-        print("🔄 Loading BERT backbone...")
+        print(f"🔄 Loading BERT backbone: {model_name}")
         self.bert = AutoModel.from_pretrained(model_name)
         self.num_labels = num_classes
         
@@ -43,68 +44,52 @@ class BertMLPClassifier(nn.Module):
         print("⚡ Initializing MLP weights...")
         self._init_weights()
         
-        print(f"✅ BERT+MLP model initialized with {sum(p.numel() for p in self.parameters()):,} parameters")
+        print(f"✅ BERT+MLP model initialized for {num_classes} classes")
     
     def _build_mlp(self, input_size, num_classes, config):
-        """Build the MLP head with progress tracking"""
+        """Build the MLP head"""
         layers = []
         current_size = input_size
         
-        # Progress bar for building layers
-        total_layers = len(config.hidden_sizes) + 1  # +1 for final layer
-        
-        with tqdm(total=total_layers, desc="Building MLP layers", unit="layer") as pbar:
-            # Hidden layers
-            for i, hidden_size in enumerate(config.hidden_sizes):
-                layer_desc = f"Hidden layer {i+1} ({current_size}→{hidden_size})"
-                pbar.set_description(layer_desc)
-                
-                # Linear layer
-                layers.append(nn.Linear(current_size, hidden_size))
-                
-                # Activation function
-                if config.activation.lower() == 'relu':
-                    layers.append(nn.ReLU())
-                elif config.activation.lower() == 'gelu':
-                    layers.append(nn.GELU())
-                elif config.activation.lower() == 'tanh':
-                    layers.append(nn.Tanh())
-                
-                # Dropout
-                layers.append(nn.Dropout(config.dropout_rate))
-                
-                # Batch normalization (optional)
-                if config.use_batch_norm:
-                    layers.append(nn.BatchNorm1d(hidden_size))
-                
-                current_size = hidden_size
-                pbar.update(1)
-                time.sleep(0.1)  # Small delay for visual effect
-            
-            # Final classification layer
-            pbar.set_description(f"Output layer ({current_size}→{num_classes})")
+        # Eğer hidden_sizes boşsa sadece Linear katman ekle
+        if not config.hidden_sizes:
             layers.append(nn.Linear(current_size, num_classes))
-            pbar.update(1)
-            time.sleep(0.1)
+            return nn.Sequential(*layers)
+        
+        # Hidden layers
+        for i, hidden_size in enumerate(config.hidden_sizes):
+            # Linear layer
+            layers.append(nn.Linear(current_size, hidden_size))
+            
+            # Activation function
+            if config.activation.lower() == 'relu':
+                layers.append(nn.ReLU())
+            elif config.activation.lower() == 'gelu':
+                layers.append(nn.GELU())
+            elif config.activation.lower() == 'tanh':
+                layers.append(nn.Tanh())
+            
+            # Dropout
+            layers.append(nn.Dropout(config.dropout_rate))
+            
+            # Batch normalization (optional)
+            if config.use_batch_norm:
+                layers.append(nn.BatchNorm1d(hidden_size))
+            
+            current_size = hidden_size
+            
+        # Final classification layer
+        layers.append(nn.Linear(current_size, num_classes))
         
         return nn.Sequential(*layers)
     
     def _init_weights(self):
-        """Initialize MLP weights with progress tracking"""
-        linear_modules = [module for module in self.mlp.modules() if isinstance(module, nn.Linear)]
-        
-        with tqdm(linear_modules, desc="Initializing weights", unit="layer") as pbar:
-            for module in pbar:
-                # Xavier/Glorot initialization
+        """Initialize MLP weights"""
+        for module in self.mlp.modules():
+            if isinstance(module, nn.Linear):
                 nn.init.xavier_uniform_(module.weight)
                 if module.bias is not None:
                     nn.init.constant_(module.bias, 0)
-                
-                # Update progress description with layer info
-                in_features = module.weight.shape[1]
-                out_features = module.weight.shape[0]
-                pbar.set_description(f"Initializing {in_features}→{out_features}")
-                time.sleep(0.05)  # Small delay for visual effect
     
     def forward(self, input_ids, attention_mask=None, labels=None, **kwargs):
         """Forward pass"""
@@ -140,11 +125,11 @@ class BertMLPClassifier(nn.Module):
 class BertMLPWithCustomPooling(BertMLPClassifier):
     """BERT+MLP with different pooling strategies"""
     
-    def __init__(self, model_name, num_classes=3, mlp_config=None, pooling='cls'):
+    # DÜZELTME: num_classes varsayılan değeri 2 yapıldı
+    def __init__(self, model_name, num_classes=2, mlp_config=None, pooling='cls'):
         self.pooling_strategy = pooling
         print(f"🔄 Initializing BERT+MLP with {pooling} pooling...")
         super().__init__(model_name, num_classes, mlp_config)
-        print(f"✅ Custom pooling ({pooling}) configured successfully")
     
     def _custom_pooling(self, sequence_output, attention_mask):
         """Apply different pooling strategies"""

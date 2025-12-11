@@ -4,8 +4,8 @@
 
 model: 
   name: "dbmdz/bert-base-turkish-cased"
-  max_length: 312 # means max word length
-  num_classes: 3
+  max_length: 256 # means max word length
+  num_classes: 2
 
 training:
   batch_size: 16
@@ -19,7 +19,7 @@ training:
   dataloader_pin_memory: true
   # Class weights to handle imbalance: [nötr, pozitif, negatif]
   # Higher weights for minority classes to improve F1 scores
-  class_weights: [1.0, 1.0, 1.0]
+  class_weights: [1.0, 1.0]
 
 mlp:
   use_mlp: true  # Set to false to use simple linear head

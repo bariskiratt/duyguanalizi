@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import argparse, json
 from sklearn.model_selection import train_test_split
 import pandas as pd
@@ -7,8 +6,8 @@ from pathlib import Path
 
 def parse_args():
     p = argparse.ArgumentParser(description="Create a class-balanced parquet with NaNs dropped first")
-    p.add_argument("--input", type=str, default="data/processed/hepsi_bert_format.parquet", help="Input parquet path")
-    p.add_argument("--output_dir", type=str, default="data/processed/hepsiburada_balanced", help="Output directory")
+    p.add_argument("--input", type=str, default="data/raw/train_filtered.csv", help="Input parquet path")
+    p.add_argument("--output_dir", type=str, default="data/processed/train_balanced", help="Output directory")
     p.add_argument("--text_col", type=str, default="review_text", help="Text column name")
     p.add_argument("--label_col", type=str, default="label", help="Label column name")
     p.add_argument("--per_class", type=int, default=None, help="Target samples per class (uniform)")
@@ -27,6 +26,11 @@ def main():
     df = df.dropna(subset=[args.text_col, args.label_col])
     df[args.text_col] = df[args.text_col].astype(str).str.strip()
     df = df[df[args.text_col].str.len() > 0]
+
+    # Normalize label values: strip and lowercase so labels are consistent
+    # Convert to string first to avoid issues with numeric labels
+    if args.label_col in df.columns:
+        df[args.label_col] = df[args.label_col].astype(str).str.strip().str.lower()
 
     # Optional: drop duplicates by text to reduce near-duplicates before balancing
     if args.drop_duplicates:

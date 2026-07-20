@@ -14,6 +14,37 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # Import your custom model
+
+
+def _find_label_config():
+    """Locate src/configs/bert_hparams.yaml by walking up from this file."""
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        candidate = parent / "src" / "configs" / "bert_hparams.yaml"
+        if candidate.exists():
+            return candidate
+    return Path("src/configs/bert_hparams.yaml")
+
+
+def load_label_vocab():
+    """Ordered label vocabulary - the single source of truth for class ids.
+
+    List position is the class id, so switching between the binary and the
+    3-class setup is a config edit, not a code edit. Returns (labels, label2id,
+    id2label).
+    """
+    with open(_find_label_config(), "r", encoding="utf-8") as _f:
+        _cfg = yaml.safe_load(_f)
+    labels = _cfg.get("labels")
+    if not labels:
+        raise ValueError(
+            "bert_hparams.yaml is missing the 'labels' list; it defines the "
+            "label -> class id mapping used by preparation, training and evaluation."
+        )
+    label2id = {name: i for i, name in enumerate(labels)}
+    return labels, label2id, {i: name for name, i in label2id.items()}
+
+
 from bert_mlp_classifier import BertMLPClassifier, BertMLPConfig
 
 def to_python_serializable(obj):
@@ -128,8 +159,7 @@ class BertMLPEvaluator:
         self.model.eval()
         
         # Label mappings
-        self.label_map = {'negatif': 0, 'pozitif': 1, 'notr': 2}  # Make sure this matches your data exactly
-        self.id2label = {v: k for k, v in self.label_map.items()}  # Reverse mapping for predictions
+        _, self.label_map, self.id2label = load_label_vocab()
 
         print("✅ Model loaded successfully!")
     
@@ -248,7 +278,7 @@ class BertMLPEvaluator:
         confidences = results['confidences']
         probabilities = np.array(results['probabilities'])
 
-        labels = [0, 1, 2]
+        labels = sorted(self.id2label)
         target_names = [self.id2label[i] for i in labels]
 
         # Basic metrics
@@ -372,7 +402,10 @@ class BertMLPEvaluator:
         
         # Save metrics JSON
         with open(f"{output_dir}/bert_mlp_metrics.json", 'w', encoding='utf-8') as f:
-            json.dump(to_python_serializable(metrics), f, indent=2, ensure_ascii=False)
+            # Record which class id meant which sentiment, so this artifact stays
+            # interpretable on its own.
+            payload = {**metrics, 'label_mapping': self.id2label}
+            json.dump(to_python_serializable(payload), f, indent=2, ensure_ascii=False)
         
         # Save detailed results CSV
         df = pd.DataFrame({

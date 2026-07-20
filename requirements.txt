@@ -1,0 +1,27 @@
+# Core ML
+torch
+transformers
+datasets
+
+# Data
+pandas
+numpy
+pyarrow
+scikit-learn
+
+# Analysis
+bertopic
+umap-learn
+hdbscan
+shap
+
+# Plotting
+matplotlib
+seaborn
+
+# Utilities
+pyyaml
+tqdm
+psutil
+rich
+emoji

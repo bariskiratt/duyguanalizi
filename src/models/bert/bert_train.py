@@ -19,6 +19,37 @@ from rich.table import Table
 from rich.panel import Panel
 
 # Import your custom model
+
+
+def _find_label_config():
+    """Locate src/configs/bert_hparams.yaml by walking up from this file."""
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        candidate = parent / "src" / "configs" / "bert_hparams.yaml"
+        if candidate.exists():
+            return candidate
+    return Path("src/configs/bert_hparams.yaml")
+
+
+def load_label_vocab():
+    """Ordered label vocabulary - the single source of truth for class ids.
+
+    List position is the class id, so switching between the binary and the
+    3-class setup is a config edit, not a code edit. Returns (labels, label2id,
+    id2label).
+    """
+    with open(_find_label_config(), "r", encoding="utf-8") as _f:
+        _cfg = yaml.safe_load(_f)
+    labels = _cfg.get("labels")
+    if not labels:
+        raise ValueError(
+            "bert_hparams.yaml is missing the 'labels' list; it defines the "
+            "label -> class id mapping used by preparation, training and evaluation."
+        )
+    label2id = {name: i for i, name in enumerate(labels)}
+    return labels, label2id, {i: name for name, i in label2id.items()}
+
+
 from bert_mlp_classifier import BertMLPClassifier, BertMLPConfig, BertMLPWithCustomPooling
 
 # Initialize rich console for beautiful output
@@ -293,17 +324,14 @@ def check_gpu_availability():
 
 def _coerce_labels_to_int64(ds):
     """Ensure dataset has an integer 'labels' column suitable for Trainer."""
-    
-    # --- YENİ EKLENEN KISIM: Nötr Temizliği ---
+
     # Label kolonunu bul (bazen 'label', bazen 'labels' olabilir)
     col_name = 'labels' if 'labels' in ds.column_names else 'label'
-    
-    # 'notr' olan satırları atıyoruz. Sadece negatif ve pozitif kalıyor.
-    ds = ds.filter(lambda x: x[col_name] != 'notr')
-    # ------------------------------------------
 
-    # Map artık sadece 2 sınıf
-    label_map = {'negatif': 0, 'pozitif': 1}
+    # Keep only the classes declared in the config, so the training set and
+    # `num_classes` can never drift apart. Dropping a class is a config edit.
+    vocab, label_map, _ = load_label_vocab()
+    ds = ds.filter(lambda x: (x[col_name] in label_map) if isinstance(x[col_name], str) else True)
     
     cols = ds.column_names
     if 'labels' not in cols and 'label' in cols:

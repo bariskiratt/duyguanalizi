@@ -7,7 +7,39 @@ import os
 import gc
 import psutil
 import torch
+import yaml
+import json
 from pathlib import Path
+
+
+def _find_label_config():
+    """Locate src/configs/bert_hparams.yaml by walking up from this file."""
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        candidate = parent / "src" / "configs" / "bert_hparams.yaml"
+        if candidate.exists():
+            return candidate
+    return Path("src/configs/bert_hparams.yaml")
+
+
+def load_label_vocab():
+    """Ordered label vocabulary - the single source of truth for class ids.
+
+    List position is the class id, so switching between the binary and the
+    3-class setup is a config edit, not a code edit. Returns (labels, label2id,
+    id2label).
+    """
+    with open(_find_label_config(), "r", encoding="utf-8") as _f:
+        _cfg = yaml.safe_load(_f)
+    labels = _cfg.get("labels")
+    if not labels:
+        raise ValueError(
+            "bert_hparams.yaml is missing the 'labels' list; it defines the "
+            "label -> class id mapping used by preparation, training and evaluation."
+        )
+    label2id = {name: i for i, name in enumerate(labels)}
+    return labels, label2id, {i: name for name, i in label2id.items()}
+
 
 # --- Sistem Ayarları ---
 use_cuda = torch.cuda.is_available()
@@ -39,7 +71,7 @@ def process_labels(labels):
     BERT eğitimi için kritik adımdır.
     """
     print(f"🔄 Etiketler işleniyor ({len(labels):,} adet)...")
-    label_map = {'negatif': 0, 'pozitif': 1}
+    _, label_map, _ = load_label_vocab()
     processed = []
     
     for x in labels:
@@ -131,7 +163,14 @@ def main():
         print(f"   Doğrulama verisi: {len(val_df):,} satır")
 
         # 3. Etiketleri Dönüştür (ÖNEMLİ ADIM)
-        print("\n🏷️ Etiketler dönüştürülüyor (negatif->0, pozitif->1)...")
+        vocab, label2id, _ = load_label_vocab()
+        print(f"\n🏷️ Etiketler dönüştürülüyor ({label2id})...")
+
+        # Persist the mapping next to the data so evaluation artifacts can always
+        # be traced back to which class id meant which sentiment.
+        with open(output_dir / "label_mapping.json", "w", encoding="utf-8") as f:
+            json.dump({"labels": vocab, "label2id": label2id}, f,
+                      ensure_ascii=False, indent=2)
         train_labels = process_labels(train_df['label'].tolist())
         val_labels = process_labels(val_df['label'].tolist())
         

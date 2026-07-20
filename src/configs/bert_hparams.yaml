@@ -5,7 +5,13 @@
 model: 
   name: "dbmdz/bert-base-turkish-cased"
   max_length: 256 # means max word length
-  num_classes: 2
+  num_classes: 3
+
+# Ordered label vocabulary. List position IS the class id, and this is the
+# single source of truth shared by prepare_bert_data.py, bert_train.py and
+# bert_evaluate.py. To train a binary model, drop "notr" from this list and
+# set num_classes to 2 - no code changes required.
+labels: ["negatif", "pozitif", "notr"]
 
 training:
   batch_size: 16
@@ -17,9 +23,9 @@ training:
   gradient_accumulation_steps: 2
   fp16: true
   dataloader_pin_memory: true
-  # Class weights to handle imbalance: [nötr, pozitif, negatif]
-  # Higher weights for minority classes to improve F1 scores
-  class_weights: [1.0, 1.0]
+  # Class weights to handle imbalance, in the order given by `labels` above:
+  # [negatif, pozitif, notr]. Higher weights for minority classes improve F1.
+  class_weights: [1.0, 1.0, 1.0]
 
 mlp:
   use_mlp: true  # Set to false to use simple linear head

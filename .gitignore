@@ -77,7 +77,3 @@ logs/
 *.tmp
 *.temp
 
-
-# Git çıktı dosyaları
-h origin*
-git*

@@ -1,0 +1,4 @@
+Sınıf,Precision,Recall,F1-Score,Support
+pozitif,0.913,0.763,0.831,6311.0
+negatif,0.905,0.748,0.819,6694.0
+notr,0.277,0.737,0.402,1322.0

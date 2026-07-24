@@ -1,4 +1,4 @@
-# =============== BÜYÜK VERİ DOSYALARI =================
+# =============== DATA FILES =================
 data/raw/*.csv
 data/raw/*.xlsx
 data/raw/*.json
@@ -7,7 +7,7 @@ data/processed/*.csv
 *.parquet
 *.arrow
 *.json
-# =============== MODEL DOSYALARI =================
+# =============== MODEL FILES =================
 src/saves/*.pkl
 src/saves/*.joblib
 src/saves/*.h5

@@ -1,13 +1,21 @@
+# Egitim + analiz icin tam bagimlilik listesi.
+# Surumler bu proje uzerinde calistigi dogrulanmis hallerdir; pin'siz birakmak
+# ozellikle transformers 4.x -> 5.x gecisinde sessizce kirilmaya yol aciyor.
+# Sadece servis etmek icin requirements-serve.txt yeterlidir (cok daha hafif).
+
 # Core ML
-torch
-transformers
-datasets
+torch==2.13.0
+transformers==5.14.1
+tokenizers==0.22.2
+safetensors==0.8.0
+accelerate==1.14.0          # Trainer bunu zorunlu kiliyor
+datasets==5.0.0
 
 # Data
-pandas
-numpy
-pyarrow
-scikit-learn
+pandas==3.0.5
+numpy==2.5.1
+pyarrow==25.0.0
+scikit-learn==1.9.0
 
 # Analysis
 bertopic
@@ -20,8 +28,8 @@ matplotlib
 seaborn
 
 # Utilities
-pyyaml
-tqdm
+PyYAML==6.0.3
+tqdm==4.70.0
 psutil
 rich
 emoji

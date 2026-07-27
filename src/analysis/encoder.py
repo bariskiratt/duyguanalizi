@@ -9,7 +9,7 @@ with open("src/configs/bert_hparams.yaml", "r", encoding="utf-8") as f:
 
 MODEL_NAME = _CFG["model"]["name"]
 MAX_LEN_DEFAULT = _CFG["model"].get("max_length", 256)
-CKPT_DIR = "artifacts/bert_ckpt/best_model"
+CKPT_DIR = "artifacts/bert_mlp_ckpt/best_model"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 def _load_text_encoder():

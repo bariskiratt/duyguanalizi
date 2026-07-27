@@ -10,7 +10,7 @@ with open("src/configs/bert_hparams.yaml", "r", encoding="utf-8") as f:
     CFG = yaml.safe_load(f)
 
 # 1) Modeli ve tokenizer'ı yükle (eğitilmiş BERT)
-CKPT = "./artifacts/bert_ckpt/best_model"
+CKPT = "./artifacts/bert_mlp_ckpt/best_model"
 assert os.path.exists(CKPT), f"Checkpoint bulunamadı: {CKPT}"
 tok = AutoTokenizer.from_pretrained(CKPT)
 mdl = AutoModelForSequenceClassification.from_pretrained(CKPT).eval()

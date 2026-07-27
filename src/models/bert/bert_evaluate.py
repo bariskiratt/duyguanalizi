@@ -10,6 +10,7 @@ from sklearn.metrics import accuracy_score, f1_score, classification_report, con
 from sklearn.metrics import roc_auc_score, precision_recall_curve, roc_curve
 from datasets import load_from_disk
 import os
+from pathlib import Path
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -45,7 +46,7 @@ def load_label_vocab():
     return labels, label2id, {i: name for name, i in label2id.items()}
 
 
-from bert_mlp_classifier import BertMLPClassifier, BertMLPConfig
+from bert_mlp_classifier import BertMLPClassifier, BertMLPConfig, BertMLPWithCustomPooling
 
 def to_python_serializable(obj):
     """Recursively convert NumPy types to native Python for JSON serialization."""
@@ -106,11 +107,23 @@ class BertMLPEvaluator:
                 
                 # Load BERT base model name from config
                 bert_model_name = self.config['model']['name']
-                self.model = BertMLPClassifier(
-                    model_name=bert_model_name,
-                    num_classes=self.config['model']['num_classes'],
-                    mlp_config=mlp_config
-                )
+                # Pooling stratejisi egitimdekiyle ayni olmali. Havuzlamanin
+                # parametresi olmadigi icin yanlis sinif secilse de state_dict
+                # sorunsuz yuklenir ve model sessizce yanlis tahmin uretir.
+                pooling = self.config['mlp'].get('pooling_strategy', 'cls')
+                if pooling == 'cls':
+                    self.model = BertMLPClassifier(
+                        model_name=bert_model_name,
+                        num_classes=self.config['model']['num_classes'],
+                        mlp_config=mlp_config
+                    )
+                else:
+                    self.model = BertMLPWithCustomPooling(
+                        model_name=bert_model_name,
+                        num_classes=self.config['model']['num_classes'],
+                        mlp_config=mlp_config,
+                        pooling=pooling
+                    )
                 
                 # Try to load the trained weights - handle both safetensors and pytorch formats
                 model_file = None

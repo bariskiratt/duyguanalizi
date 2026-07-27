@@ -6,7 +6,6 @@ data/processed/*.parquet
 data/processed/*.csv
 *.parquet
 *.arrow
-*.json
 # =============== MODEL FILES =================
 src/saves/*.pkl
 src/saves/*.joblib

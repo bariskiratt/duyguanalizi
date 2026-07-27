@@ -2,6 +2,7 @@ import yaml
 import torch
 import time
 import os
+from pathlib import Path
 from transformers import (
     AutoTokenizer, 
     TrainingArguments, 
@@ -9,6 +10,7 @@ from transformers import (
     EarlyStoppingCallback,
     DataCollatorWithPadding
 )
+from transformers.trainer_utils import get_last_checkpoint
 from sklearn.metrics import accuracy_score, f1_score
 import numpy as np
 from datasets import load_from_disk, Value
@@ -65,31 +67,34 @@ def compute_metrics(eval_pred):
     f1_weighted = f1_score(labels, predictions, average="weighted")
     accuracy = accuracy_score(labels, predictions)
     
-    # --- DEĞİŞEN KISIM: Sadece 0 ve 1 için hesapla ---
-    f1_per_class = f1_score(labels, predictions, average=None, labels=[0, 1])
-    
+    # Sınıf listesi config'ten gelir, böylece 2 ve 3 sınıflı kurulumlar
+    # aynı kodla çalışır ve hiçbir sınıf metriklerin dışında kalmaz.
+    vocab, _, _ = load_label_vocab()
+    class_ids = list(range(len(vocab)))
+    f1_per_class = f1_score(labels, predictions, average=None, labels=class_ids)
+
     unique_preds, pred_counts = np.unique(predictions, return_counts=True)
-    pred_distribution = {f"pred_class_{i}": 0 for i in [0, 1]}
+    pred_distribution = {f"pred_class_{i}": 0 for i in class_ids}
     for cls, count in zip(unique_preds, pred_counts):
-        pred_distribution[f"pred_class_{cls}"] = count
-    
-    # Metrics sözlüğünü 2 sınıfa göre güncelle
+        pred_distribution[f"pred_class_{cls}"] = int(count)
+
     metrics = {
         "f1": f1_macro,
         "f1_macro": f1_macro,
         "f1_weighted": f1_weighted,
         "accuracy": accuracy,
-        "f1_negatif": f1_per_class[0] if len(f1_per_class) > 0 else 0.0,
-        "f1_pozitif": f1_per_class[1] if len(f1_per_class) > 1 else 0.0,
+        **{f"f1_{name}": float(f1_per_class[i]) for i, name in enumerate(vocab)},
         **pred_distribution
     }
-    
+
     # Print kısmı
     print(f"\n📊 Evaluation Metrics:")
     print(f"   F1 Macro: {f1_macro:.4f}")
     print(f"   Accuracy: {accuracy:.4f}")
-    print(f"   Sınıf Bazlı F1: [Negatif: {metrics['f1_negatif']:.4f}, Pozitif: {metrics['f1_pozitif']:.4f}]")
-    
+    per_class_str = ", ".join(f"{name.capitalize()}: {f1_per_class[i]:.4f}"
+                              for i, name in enumerate(vocab))
+    print(f"   Sınıf Bazlı F1: [{per_class_str}]")
+
     return metrics
 
 
@@ -251,7 +256,13 @@ def check_gpu_availability():
     # Check CUDA availability
     cuda_available = torch.cuda.is_available()
     gpu_info['cuda_available'] = cuda_available
-    
+
+    # Apple Silicon (MPS). Bunu ayrica kontrol ediyoruz cunku CUDA yoksa da
+    # gercek bir GPU olabilir; HF Trainer zaten args.device olarak mps secer,
+    # dolayisiyla burada CPU dondurmek yaniltici bir mesajdan ibaret kalirdi.
+    mps_available = torch.backends.mps.is_available()
+    gpu_info['mps_available'] = mps_available
+
     if cuda_available:
         # Get GPU details
         gpu_count = torch.cuda.device_count()
@@ -308,15 +319,20 @@ def check_gpu_availability():
             memory_allocated = torch.cuda.memory_allocated() / 1e6
             memory_cached = torch.cuda.memory_reserved() / 1e6
             gpu_table.add_row("Memory Status", f"{memory_allocated:.1f} MB allocated", f"{memory_cached:.1f} MB cached")
+    elif mps_available:
+        gpu_table.add_row("Apple MPS", "✅ Available", "Apple Silicon GPU uzerinde egitilecek")
     else:
         gpu_table.add_row("Recommendation", "Install CUDA PyTorch", "pip install torch --index-url https://download.pytorch.org/whl/cu118")
-    
+
     console.print(gpu_table)
-    
+
     # Return device recommendation
     if cuda_available and gpu_info.get('gpu_test_passed', False):
         console.print("✅ [bold green]GPU is ready for training![/bold green]")
         return torch.device("cuda")
+    elif mps_available:
+        console.print("✅ [bold green]Apple Silicon GPU (MPS) hazir![/bold green]")
+        return torch.device("mps")
     else:
         console.print("⚠️ [bold yellow]GPU not available, falling back to CPU[/bold yellow]")
         return torch.device("cpu")
@@ -461,16 +477,19 @@ def main():
             warmup_steps=config['training']['warmup_steps'],
             weight_decay=config['training']['weight_decay'],
             gradient_accumulation_steps=config['training']['gradient_accumulation_steps'],
-            fp16=config['training']['fp16'],
+            # fp16 yalnizca CUDA'da ise yarar. Apple Silicon'da olculebilir bir hiz
+            # kazanci yok (fp32 ile ayni), buna karsilik mixed precision gercekten
+            # devreye giriyor; bedava risk almamak icin CUDA'ya bagliyoruz.
+            fp16=config['training']['fp16'] and torch.cuda.is_available(),
             eval_strategy="steps",
             eval_steps=config['evaluation']['eval_steps'],
             logging_steps=config['evaluation']['logging_steps'],
             save_steps=config['evaluation']['save_steps'],
+            save_total_limit=config['evaluation'].get('save_total_limit', 2),
             load_best_model_at_end=config['evaluation']['load_best_model_at_end'],
             metric_for_best_model=config['early_stopping']['metric_for_best_model'],
             greater_is_better=config['early_stopping']['greater_is_better'],
-            report_to=None,  # Disable wandb/tensorboard for cleaner output
-            save_safetensors=True,  # Use safetensors for better compression
+            report_to="none",  # Disable wandb/tensorboard for cleaner output
             dataloader_pin_memory=False,  # Reduce memory usage
         )
         
@@ -565,11 +584,19 @@ def main():
     ))
     
     start_time = time.time()
-    
+
+    # Yarim kalmis bir egitim varsa kaldigi yerden devam et. Colab/Kaggle
+    # oturumlari saatler suren egitimin ortasinda kopabiliyor; bu olmadan
+    # scripti yeniden calistirmak bastan baslamak anlamina gelir.
+    resume_from = get_last_checkpoint(training_args.output_dir) \
+        if os.path.isdir(training_args.output_dir) else None
+    if resume_from:
+        console.print(f"↩️ [bold yellow]Kaldigi yerden devam ediliyor:[/bold yellow] {resume_from}")
+
     try:
         # Train the model
-        trainer.train()
-        
+        trainer.train(resume_from_checkpoint=resume_from)
+
         training_time = time.time() - start_time
         console.print(f"\n✅ [bold green]Training completed in {training_time/60:.1f} minutes![/bold green]")
         

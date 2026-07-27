@@ -48,6 +48,10 @@ evaluation:
   logging_steps: 100
   save_steps: 1500
   load_best_model_at_end: true
+  # Her checkpoint ~443 MB ve 3 epoch 32 kayit uretiyor (~14 GB). Limit olmadan
+  # Colab/Kaggle diski dolup oturum egitim ortasinda oluyor. En iyi checkpoint
+  # load_best_model_at_end tarafindan zaten korunur.
+  save_total_limit: 2
 
 calibration:
   method: "platt"

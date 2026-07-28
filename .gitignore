@@ -76,3 +76,6 @@ logs/
 *.tmp
 *.temp
 
+
+# Yerel veri yedekleri (sizintili eski surumler) - repoya girmez
+data/processed/*_with_leak/

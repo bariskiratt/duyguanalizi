@@ -28,6 +28,33 @@ The remaining error is concentrated in the same place: `negatif` and `notr` are 
 
 > The two systems were evaluated on different splits — the baseline on 14,327 reviews with the original skewed class distribution (neutral only 9%), the transformer on 24,706 class-balanced reviews. Treat the comparison as directional, not as a controlled A/B.
 
+### ⚠️ The numbers above are inflated by label leakage
+
+The source data prepends the star rating to the review text — `"Beş Yıldız Kokusunu
+ve yoğunluğunu beğendim..."`, `"Üç Yıldız Güzeldi"`. About a quarter of all reviews
+carry this prefix, and it determines the label almost perfectly: 1–2 stars are
+negative 100% of the time, 3 stars neutral 99.7%, 4–5 stars positive 98%+.
+
+For those rows the model does not classify sentiment, it reads the answer out of
+the input. Measured on a run that scored 0.8725 macro F1 overall:
+
+| Subset | Accuracy |
+| --- | --- |
+| With star prefix (25.7%) | 100.0% |
+| Without prefix (74.3%) | 81.9% |
+
+Re-scoring the same weights on a prefix-stripped validation set gives **0.7966
+macro F1 against the 0.8725 it reports on the leaky set** — the leak is worth about
+7.6 points. It also breaks on real input: short unprefixed sentences like
+"Berbat, param çöpe gitti" are confidently misclassified.
+
+`create_balanced_dataset.py` now strips this prefix (`--keep_star_prefix` opts out).
+Since the raw parquet is not in the repo, `rebuild_without_star_prefix.py`
+regenerates the tokenized datasets from what is committed.
+
+**Any metrics in this README predate that fix and should be regenerated before
+they are quoted anywhere.**
+
 Artifacts: `artifacts/bert_evaluation/` (metrics, confusion matrix, per-review predictions) and `artifacts/baseline/`.
 
 ## Labels

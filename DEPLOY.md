@@ -137,12 +137,45 @@ pinned: false
 Space ayarlarından `SENTIMENT_HF_REPO` değişkenini model reposuna ayarla. Model
 reposu private ise ayrıca `HF_TOKEN` secret'ı ekle.
 
-## Neden Spaces
+## Arayüz barındırma: ücretsiz seçenek yok
 
-Ücretsiz CPU katmanı BERT-base inference için yeterli (yorum başına yaklaşık yarım
-saniye) ve ağırlıklar Hub'da durduğu için repo boyutu sorun olmuyor. FastAPI + Docker
-ile Render/Railway de mümkün ama 443 MB'lık model 512 MB'lık ücretsiz katmanlarda
-belleğe sığmaz; ayda 7-25 dolar ve ek Docker/CI işi gerektirir.
+**Gradio Space'leri artık ücretsiz katmanda çalışmıyor.** `create_repo` denemesi
+`402 Payment Required` döndürüyor:
+
+> Static Spaces are free for everyone, but hosting Gradio and Docker Spaces on free
+> cpu-basic requires a PRO subscription.
+
+Model reposunu yayınlamak ücretsiz; ücretli olan yalnızca çalışan arayüz. Dört seçenek
+var, hepsi ölçülmüş rakamlarla:
+
+| Seçenek | Maliyet | Gereken iş | Doğruluk |
+| --- | --- | --- | --- |
+| HF PRO + mevcut Gradio Space | $9/ay | yok, `publish.sh` yeterli | %82.2 |
+| Static Space + tarayıcıda ONNX | ücretsiz | arayüzü JS'te yeniden yaz | %82.0 |
+| Render/Railway + Docker | ~$7/ay | Dockerfile + CI | %82.2 |
+| Yerel `python app.py` | ücretsiz | yok | %82.2 |
+
+Tarayıcı seçeneği gerçekten uygulanabilir, denendi: model ONNX'e sorunsuz çıkıyor
+(442 MB) ve int8 nicemlemeyle **111 MB**'a iniyor. 300 örnekte ölçüldüğünde fp32 ONNX
+PyTorch ile 300/300 aynı tahmini veriyor, int8 297/300 — yani nicemlemenin bedeli
+yaklaşık 1 puan. Karşılığında sonsuza dek ücretsiz barındırma, ama ziyaretçi ilk
+açılışta 111 MB indiriyor ve tokenizer dahil tüm arayüzün JavaScript'te yazılması
+gerekiyor.
+
+`config`'deki `export.onnx_optimization` ve `target_size_mb: 140` ayarları bu yolu
+zaten öngörmüş; ölçülen 111 MB o hedefin altında.
+
+## Model yayınlamak (ücretsiz)
+
+```bash
+./venv/bin/huggingface-cli login     # write yetkili token
+bash deploy/publish.sh <hf-kullanici-adi>
+```
+
+Script model reposunu oluşturup ağırlıkları yükler, sonra Space'i dener. Space adımı
+PRO yoksa 402 ile düşer — model yüklemesi o noktada çoktan tamamlanmıştır.
+
+Yayındaki model: <https://huggingface.co/bariskirat/duyguanalizi-berturk>
 
 ## Deploy öncesi kalan temizlik
 

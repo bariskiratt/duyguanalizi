@@ -4,6 +4,8 @@ Three-class sentiment classification for Turkish e-commerce product reviews, bui
 
 Beyond the classifier, the project includes an interpretability layer: **SHAP** attribution to explain *why* the model misclassifies the reviews it gets wrong, and **BERTopic** clustering to surface the recurring themes customers complain about.
 
+**Model:** [huggingface.co/bariskirat/duyguanalizi-berturk](https://huggingface.co/bariskirat/duyguanalizi-berturk)
+
 ## Results
 
 Evaluated on **65,000** held-out reviews, after removing the label leak described below:

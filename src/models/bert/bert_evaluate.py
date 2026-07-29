@@ -176,29 +176,34 @@ class BertMLPEvaluator:
 
         print("✅ Model loaded successfully!")
     
-    def evaluate_dataset(self, dataset_path="data/processed/bert_test"):
-        """Evaluate model on validation dataset with detailed analysis"""
-        print(f"\n📊 Loading validation dataset from: {dataset_path}")
-        
-        try:
-            # Resolve dataset path
-            candidate_paths = [
-                dataset_path,
-                os.path.join(self.project_dir, dataset_path),
-            ]
-            resolved_path = None
-            for cand in candidate_paths:
+    def evaluate_dataset(self, dataset_path=None):
+        """Evaluate model on the held-out dataset with detailed analysis"""
+        # bert_test tercih edilir ama boru hatti onu her zaman uretmiyor;
+        # prepare_bert_data.py yalnizca bert_train ve bert_val yaziyor.
+        # Yoksa bert_val'a dusuyoruz - sessizce hicbir sey yapmamaktansa
+        # hangi bolumun kullanildigini acikca yazmak dogru.
+        aday_bolumler = [dataset_path] if dataset_path else [
+            "data/processed/bert_test",
+            "data/processed/bert_val",
+        ]
+
+        resolved_path = None
+        for bolum in aday_bolumler:
+            for cand in (bolum, os.path.join(self.project_dir, bolum)):
                 if os.path.exists(cand):
                     resolved_path = cand
                     break
-            if resolved_path is None:
-                raise FileNotFoundError(f"Directory {dataset_path} not found")
+            if resolved_path:
+                break
 
-            val_dataset = load_from_disk(resolved_path)
-            print(f"Dataset size: {len(val_dataset)} samples")
-        except Exception as e:
-            print(f"❌ Error loading dataset: {e}")
-            return None
+        if resolved_path is None:
+            raise FileNotFoundError(
+                f"Degerlendirme veri seti bulunamadi. Denenen: {aday_bolumler}"
+            )
+
+        print(f"\n📊 Loading evaluation dataset from: {resolved_path}")
+        val_dataset = load_from_disk(resolved_path)
+        print(f"Dataset size: {len(val_dataset)} samples")
         
         # Get predictions with detailed analysis
         predictions = []
@@ -643,6 +648,9 @@ def main():
         print(f"❌ Error during evaluation: {e}")
         import traceback
         traceback.print_exc()
+        # Sifir kodla cikmak basarisizligi basari gibi gosteriyor; bir CI adimi
+        # ya da boru hatti bunu fark etmeden devam eder.
+        raise SystemExit(1)
 
 if __name__ == "__main__":
     main()

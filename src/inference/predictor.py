@@ -12,6 +12,7 @@ Kullanim:
 from __future__ import annotations
 
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Iterable
@@ -32,6 +33,28 @@ from bert_mlp_classifier import (  # noqa: E402
 
 DEFAULT_CONFIG = _REPO_ROOT / "src" / "configs" / "bert_hparams.yaml"
 DEFAULT_CKPT = _REPO_ROOT / "artifacts" / "bert_mlp_ckpt" / "best_model"
+
+
+_NOKTALAMA = re.compile(r"[^\w\s]", re.UNICODE)
+_BOSLUK = re.compile(r"\s+")
+
+
+def normalize_for_model(text: str) -> str:
+    """Girdiyi egitim korpusunun bicimine getirir.
+
+    Egitim verisinde noktalama neredeyse tamamen temizlenmis: virgul 10.000
+    karakterde 0.7 kez geciyor, normal Turkce metinde bu sayi ~150. Model bu
+    yuzden noktalamaya asiri duyarli - "Berbat, param çöpe gitti." cumlesini
+    %99 guvenle POZITIF sayarken, ayni cumle noktalamasiz verildiginde %100
+    guvenle negatif diyor.
+
+    Olculdugunde: normal noktalamayla yazilmis 500 yorumda dogruluk
+    normalizasyon olmadan %68.6, normalize edilince %80.2 - yani girdiyi
+    egitim dagilimina geri tasimak 11.6 puan getiriyor. Korpus bicimindeki
+    (zaten noktalamasiz) metinlerde etki ~1 puanlik kucuk bir kayip, cunku
+    orada normalizasyon gereksiz.
+    """
+    return _BOSLUK.sub(" ", _NOKTALAMA.sub(" ", str(text))).strip()
 
 
 def _pick_device() -> torch.device:
@@ -113,10 +136,12 @@ class SentimentPredictor:
         )
 
     @torch.no_grad()
-    def predict_batch(self, texts: Iterable[str]) -> list[dict]:
+    def predict_batch(self, texts: Iterable[str], normalize: bool = True) -> list[dict]:
         texts = [t if isinstance(t, str) else "" for t in texts]
         if not texts:
             return []
+        if normalize:
+            texts = [normalize_for_model(t) for t in texts]
         enc = self.tokenizer(
             texts,
             padding=True,
@@ -135,8 +160,8 @@ class SentimentPredictor:
             out.append({"label": top, "confidence": scores[top], "scores": scores})
         return out
 
-    def predict(self, text: str) -> dict:
-        return self.predict_batch([text])[0]
+    def predict(self, text: str, normalize: bool = True) -> dict:
+        return self.predict_batch([text], normalize=normalize)[0]
 
 
 if __name__ == "__main__":

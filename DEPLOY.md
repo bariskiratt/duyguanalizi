@@ -1,21 +1,22 @@
 # Deploy
 
-Hedef: modeli Hugging Face Spaces üzerinde çalışan bir web arayüzü olarak yayına almak.
-
-Ağırlıklar git'e **girmez** — 443 MB'lık checkpoint Hub'da bir model reposunda durur,
-Space açılışta indirir. Repoyu şişirmemenin ve Spaces'in build limitine takılmamanın yolu bu.
+Ağırlıklar git'e **girmez** — 423 MB'lık checkpoint Hub'da bir model reposunda durur.
+Repo zaten 62 MB tokenize veri taşıyor, üstüne modeli koymanın anlamı yok.
 
 ## Durum
 
 | Parça | Durum |
 | --- | --- |
-| Tokenize veri (263.300 train / 65.000 val, 3 sınıf) | Hazır, repoda |
-| Eğitim pipeline'ı | Çalışıyor (CPU smoke test geçti) |
-| Eğitilmiş checkpoint | **Yok — üretilmesi gerekiyor** |
+| Tokenize veri (263.292 train / 65.000 val, 3 sınıf) | Hazır, repoda, sızıntı temizlenmiş |
+| Eğitim pipeline'ı | Çalışıyor, kesintiden devam ediyor |
+| Eğitilmiş checkpoint | **Hazır** — 0.8263 macro F1 |
+| Hub'da model | **Yayında** — [bariskirat/duyguanalizi-berturk](https://huggingface.co/bariskirat/duyguanalizi-berturk) |
 | Inference katmanı (`src/inference/predictor.py`) | Hazır, test edildi |
-| Web arayüzü (`app.py`) | Hazır, test edildi |
+| Web arayüzü (`app.py`) | Hazır, yerelde çalışıyor |
+| Barındırılan arayüz | **Yok** — ücretsiz seçenek kalmadı, aşağıya bak |
 
-Tek eksik checkpoint. Aşağıdaki 1. adım onu üretir.
+Sıfırdan başlıyorsan 1. adım eğitimi üretir. Elindeki modeli yayınlamak için doğrudan
+"Model yayınlamak" bölümüne geçebilirsin.
 
 ## 1. Eğit
 
@@ -103,7 +104,10 @@ python app.py        # http://localhost:7860
 Hub'a yüklemeden yerel checkpoint ile denemek için `SENTIMENT_HF_REPO` yerine
 `SENTIMENT_CKPT=artifacts/bert_mlp_ckpt/best_model` kullan.
 
-## 4. Space oluştur
+## 4. Space oluştur (PRO gerektirir)
+
+> Bu adım yalnızca PRO aboneliğiyle çalışır — gerekçesi bir alttaki bölümde.
+> `deploy/publish.sh` bunu otomatik dener, abonelik yoksa 402 ile düşer.
 
 huggingface.co/new-space → SDK olarak **Gradio** seç. Sonra Space reposuna şunları koy:
 

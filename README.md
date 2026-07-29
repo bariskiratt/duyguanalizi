@@ -1,10 +1,45 @@
 # Turkish E-Commerce Review Sentiment Analysis
 
-Three-class sentiment classification for Turkish e-commerce product reviews, built by fine-tuning **BERTurk** (`dbmdz/bert-base-turkish-cased`) with a custom MLP classification head — and benchmarked against a TF-IDF baseline to show what the transformer actually buys you.
+Three-class sentiment classification (`negatif` / `pozitif` / `notr`) for Turkish
+product reviews. **BERTurk** (`dbmdz/bert-base-turkish-cased`) fine-tuned with a custom
+mean-pooled MLP head on 263,292 reviews, served through a Gradio interface.
 
-Beyond the classifier, the project includes an interpretability layer: **SHAP** attribution to explain *why* the model misclassifies the reviews it gets wrong, and **BERTopic** clustering to surface the recurring themes customers complain about.
+| | |
+| --- | --- |
+| **Model** | [huggingface.co/bariskirat/duyguanalizi-berturk](https://huggingface.co/bariskirat/duyguanalizi-berturk) |
+| **Macro F1** | 0.8263 over 65,000 held-out reviews |
+| **Manual audit** | [reports/manual_audit_100.md](reports/manual_audit_100.md) |
+| **Deployment** | [DEPLOY.md](DEPLOY.md) · run locally with `python app.py` |
 
-**Model:** [huggingface.co/bariskirat/duyguanalizi-berturk](https://huggingface.co/bariskirat/duyguanalizi-berturk)
+## What this involved
+
+The model was the easy half. Two defects would each have shipped a system that looked
+fine on paper and failed in use — both were found by measurement, not inspection.
+
+**A label leak worth 7.6 F1 points.** The source data writes the star rating into the
+review text: `"Beş Yıldız Kokusunu ve yoğunluğunu beğendim..."`. A quarter of all rows
+carry it, and the prefix determines the label almost perfectly. Splitting accuracy by
+whether the prefix is present exposed it — **100.0% with it, 81.9% without**. The model
+was reading the answer, not classifying sentiment. Fixed in the data pipeline; retraining
+on clean data scored *higher* than the leaky model did once its crutch was removed.
+
+**A train/serve preprocessing mismatch that inverted predictions.** Validation accuracy
+sat at 82% while `"Berbat, param çöpe gitti"` came back **positive at 0.99 confidence**.
+The training corpus turned out to have almost no punctuation — a comma every 10,000
+characters where ordinary Turkish has ~150 — so the model had never learned to ignore it.
+The first measurement of the fix said it *hurt* (81.1% → 80.1%), because validation text
+is already in corpus form; measuring on reviews rewritten the way a person actually types
+showed the opposite: **68.6% → 80.2%**.
+
+**A 100-review manual audit** ([reports/](reports/manual_audit_100.md)) that reads every
+error rather than reporting a rate. Of 19 errors only **2** are unambiguous model
+failures; in 9 the label contradicts the text, because labels come from star ratings
+rather than the words. Measured accuracy has a ceiling set by label quality.
+
+Alongside that: a serving layer that reconstructs the custom architecture from config
+(`from_pretrained` does not work on this checkpoint), resumable training that survives an
+interrupted 12-hour run, MPS/CUDA/CPU device handling, and a measured ONNX path —
+111 MB int8, agreeing with PyTorch on 297 of 300 predictions.
 
 ## Results
 

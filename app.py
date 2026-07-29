@@ -101,4 +101,12 @@ with gr.Blocks(title="Türkçe Yorum Duygu Analizi") as demo:
 
 
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=int(os.environ.get("PORT", 7860)))
+    # Spaces ve konteynerlerde tum arayuzleri dinlemek gerekir, ama yerelde
+    # 0.0.0.0'a baglanmak Gradio'nun "Running on http://0.0.0.0:7860" yazmasina
+    # yol aciyor - bu bir baglanma adresi, gidilecek adres degil, ve tarayicilar
+    # kabul etmiyor. Yerelde 127.0.0.1'e baglanip tiklanabilir bir adres basiyoruz.
+    konteyner = bool(os.environ.get("SPACE_ID") or os.environ.get("SENTIMENT_BIND_ALL"))
+    demo.launch(
+        server_name="0.0.0.0" if konteyner else "127.0.0.1",
+        server_port=int(os.environ.get("PORT", 7860)),
+    )
